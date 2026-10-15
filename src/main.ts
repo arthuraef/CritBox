@@ -10,12 +10,12 @@ import { EventCursor, hapticFor, planFeedback, specialFor, type FeedbackEvent, t
 import { SoundPlayer } from './audio/sound.ts';
 import { hapticsSupported, vibrate } from './audio/haptics.ts';
 import { setupSettingsView } from './ui/settingsView.ts';
+import { setupChangelogView } from './ui/changelogView.ts';
+import { setupDiceSelector } from './ui/diceSelector.ts';
 
 declare const __APP_VERSION__: string;
 
 const stage = document.getElementById('stage') as HTMLElement;
-const resultEl = document.getElementById('result') as HTMLElement;
-const rollButton = document.getElementById('roll') as HTMLButtonElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const versionEl = document.getElementById('app-version');
 if (versionEl && typeof __APP_VERSION__ !== 'undefined') {
@@ -57,27 +57,27 @@ function emit(kind: FeedbackKind, strength = 1): void {
 for (const type of ['pointerdown', 'keydown'] as const) {
   window.addEventListener(type, () => sound.unlock(), { passive: true });
 }
+
 setupSettingsView(settings, { hapticsSupported: hapticsSupported(), onSoundEnabled: () => sound.unlock() });
 setupHistoryView(history, () => {
-  resultEl.textContent = '–';
-  resultEl.classList.remove('crit', 'fumble');
+  // Ao limpar o histórico, nada no palco precisa ser resetado
 });
-if (history.latest !== null) {
-  resultEl.textContent = String(history.latest.result);
-}
+setupChangelogView();
+setupDiceSelector();
 
 // ----- splash: D20 girando enquanto os recursos essenciais carregam -----
 const appEl = document.getElementById('app') as HTMLElement;
 const splashEl = document.getElementById('splash') as HTMLElement;
 let splashing = true;
 const SPLASH_MIN_MS = 1800;
+
 void Promise.all([
   new Promise<void>((resolve) => setTimeout(resolve, SPLASH_MIN_MS)),
   document.fonts?.ready ?? Promise.resolve(),
 ]).then(() => {
-  // Dado em repouso mostrando o último resultado (ou 20 na primeira vez).
-  const shown = history.latest?.result ?? 20;
-  scene.setPose([0, 0, 0], orientationForFace(shown, uprightYaw(shown)));
+  // Ao carregar, nenhum resultado deve ser exibido. O dado repousa neutro no centro.
+  scene.setPose([0, 0, 0], orientationForFace(20, uprightYaw(20)));
+  scene.highlightResult(null);
   splashing = false;
   appEl.classList.remove('splashing');
   splashEl.classList.add('fade');
@@ -93,11 +93,14 @@ interface ActiveRoll {
 let active: ActiveRoll | null = null;
 
 function setRolling(rolling: boolean): void {
-  rollButton.disabled = rolling;
-  resultEl.classList.toggle('rolling', rolling);
+  if (rolling) {
+    stage.setAttribute('aria-busy', 'true');
+  } else {
+    stage.removeAttribute('aria-busy');
+  }
 }
 
-/** Único ponto de partida de uma rolagem: toque, arrasto solto ou botão. */
+/** Inicia uma rolagem: toque no dado, clique ou arrastar e soltar. */
 function startRoll(): void {
   const ticket = controller.trigger(); // sorteia aqui, antes da animação
   if (ticket === null) {
@@ -114,7 +117,6 @@ function startRoll(): void {
   });
   const events: FeedbackEvent[] = planFeedback(plan); // não depende do resultado
   active = { ticket, plan, startedAt: performance.now(), cursor: new EventCursor(events) };
-  resultEl.classList.remove('crit', 'fumble');
   setRolling(true);
   statusEl.textContent = '';
   scene.onRollStart();
@@ -125,12 +127,13 @@ function finishRoll(roll: ActiveRoll): void {
   try {
     const record = controller.complete(roll.ticket.id, faceUp(scene.orientation));
     if (record !== null) {
-      resultEl.textContent = String(record.result);
       history.add(record);
-      // Efeito especial só depois de a face ser confirmada; não altera o resultado.
+      // Destaque luminoso do número sorteado diretamente na face do dado
+      scene.highlightResult(record.result);
+
+      // Efeito especial para 20 ou 1
       const special = specialFor(record.result);
       if (special !== null) {
-        resultEl.classList.add(special);
         emit(special);
       }
     }
@@ -161,9 +164,21 @@ function frame(now: number): void {
     needsRender = true;
   }
   if (active !== null) {
-    const pose = active.plan.pose(now - active.startedAt);
-    scene.setPose(pose.position, pose.orientation);
-    for (const ev of active.cursor.due(now - active.startedAt)) {
+    const elapsed = now - active.startedAt;
+    const pose = active.plan.pose(elapsed);
+
+    // Durante a rolagem, o dado é 25% menor (escala 0.75), retornando suavemente a 1.0 no repouso
+    let scaleFactor = 0.75;
+    if (elapsed >= active.plan.settleStartMs) {
+      const settleSpan = Math.max(active.plan.durationMs - active.plan.settleStartMs, 1);
+      const settleProgress = Math.min((elapsed - active.plan.settleStartMs) / settleSpan, 1);
+      const s = 1 - Math.pow(1 - settleProgress, 3);
+      scaleFactor = 0.75 + 0.25 * s;
+    }
+
+    scene.setPose(pose.position, pose.orientation, scaleFactor);
+
+    for (const ev of active.cursor.due(elapsed)) {
       emit(ev.kind, ev.strength);
       if (ev.kind === 'impact') {
         scene.onImpact(pose.position, ev.strength);
@@ -217,13 +232,10 @@ stage.addEventListener('pointermove', (e) => {
 
 function release(e: PointerEvent): void {
   if (pointer === null || e.pointerId !== pointer.id) return;
-  const { onDice } = pointer;
   pointer = null;
-  if (e.type === 'pointerup' && onDice) {
-    startRoll(); // tocou ou arrastou e soltou: ambos só disparam a rolagem
+  if (e.type === 'pointerup') {
+    startRoll(); // tocou ou arrastou e soltou: inicia a rolagem
   }
 }
 stage.addEventListener('pointerup', release);
 stage.addEventListener('pointercancel', release);
-
-rollButton.addEventListener('click', startRoll);

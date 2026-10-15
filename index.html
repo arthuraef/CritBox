@@ -24,7 +24,12 @@
       html, body {
         margin: 0;
         height: 100%;
-        background: radial-gradient(ellipse at 50% 40%, #241a12 0%, var(--bg) 70%);
+        background-color: var(--bg);
+        /* Textura de mesa de feltro de lã escura */
+        background-image:
+          radial-gradient(ellipse at 50% 40%, rgba(36, 26, 18, 0.85) 0%, rgba(18, 14, 11, 0.98) 75%),
+          repeating-linear-gradient(45deg, rgba(255, 235, 200, 0.015) 0px, rgba(255, 235, 200, 0.015) 2px, transparent 2px, transparent 4px),
+          repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.25) 0px, rgba(0, 0, 0, 0.25) 2px, transparent 2px, transparent 4px);
         color: var(--text);
         font-family: Georgia, 'Times New Roman', serif;
         overscroll-behavior: none;
@@ -61,40 +66,25 @@
         position: relative;
         display: flex;
         align-items: center;
-        justify-content: center;
-        min-height: 112px;
-        padding: 16px 72px 8px;
+        justify-content: space-between;
+        min-height: 64px;
+        padding: 12px 18px 8px;
+        z-index: 2;
       }
-      #result-label {
-        position: absolute;
-        top: 18px;
-        left: 0;
-        right: 0;
-        text-align: center;
-        font-size: 12px;
-        letter-spacing: 0.3em;
+      #app-title {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
-        color: var(--bronze-dim);
-      }
-      #result {
-        margin-top: 14px;
-        font-size: clamp(52px, 15vw, 92px);
-        line-height: 1;
         color: var(--bronze);
-        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
-        font-variant-numeric: tabular-nums;
-        min-width: 2ch;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
         text-align: center;
-        transition: transform 0.2s ease, opacity 0.2s ease;
+        flex: 1;
       }
-      #result.rolling { opacity: 0.35; transform: scale(0.9); }
 
       .icon-btn {
-        position: absolute;
-        top: 12px;
-        right: 14px;
-        width: 48px;
-        height: 48px;
+        width: 44px;
+        height: 44px;
         display: grid;
         place-items: center;
         background: linear-gradient(#3a2b1c, #231a11);
@@ -102,26 +92,108 @@
         border-radius: 12px;
         cursor: pointer;
         z-index: 2;
+        transition: transform 0.15s ease, border-color 0.15s ease;
       }
-      .icon-btn svg { width: 26px; height: 26px; stroke: var(--bronze-hi); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-btn:hover {
+        border-color: var(--bronze-hi);
+        transform: scale(1.04);
+      }
+      .icon-btn svg { width: 24px; height: 24px; stroke: var(--bronze-hi); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-      #stage { position: relative; flex: 1; min-height: 0; touch-action: none; }
+      #stage { position: relative; flex: 1; min-height: 0; touch-action: none; cursor: grab; }
+      #stage:active { cursor: grabbing; }
       #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-      #status { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: var(--bronze-dim); font-size: 14px; padding: 0 24px; }
+      #status {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12px;
+        text-align: center;
+        color: var(--bronze-hi);
+        font-size: 14px;
+        padding: 0 24px;
+        pointer-events: none;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+      }
 
-      footer { display: flex; justify-content: center; padding: 12px 16px 24px; position: relative; z-index: 2; }
-      #app-version {
+      footer {
+        display: flex;
+        justify-content: center;
+        padding: 10px 16px 20px;
+        position: relative;
+        z-index: 2;
+      }
+
+      /* ---- seletor de dados na parte inferior ---- */
+      .dice-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        background: rgba(24, 18, 13, 0.9);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid var(--bronze-dim);
+        border-radius: 16px;
+        padding: 6px 10px;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
+        max-width: 100%;
+        overflow-x: auto;
+      }
+      .dice-chip {
+        flex: 0 0 auto;
+        min-width: 44px;
+        height: 38px;
+        padding: 0 10px;
+        background: #1f1710;
+        border: 1px solid rgba(176, 141, 87, 0.35);
+        border-radius: 10px;
+        color: var(--bronze);
+        font-size: 13px;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .dice-chip:hover {
+        background: #2e2216;
+        border-color: var(--bronze);
+        color: var(--text);
+      }
+      .dice-chip.active {
+        background: linear-gradient(180deg, #4d3620 0%, #2a1c10 100%);
+        border-color: var(--bronze-hi);
+        color: var(--bronze-hi);
+        box-shadow: 0 0 12px rgba(217, 184, 120, 0.45);
+        transform: translateY(-2px);
+      }
+      .dice-chip:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 2px; }
+
+      /* ---- botão de versão clicável ---- */
+      .version-badge {
         position: absolute;
         bottom: calc(env(safe-area-inset-bottom) + 14px);
         left: calc(env(safe-area-inset-left) + 18px);
         font-size: 11px;
         letter-spacing: 0.08em;
         color: var(--bronze-dim);
-        opacity: 0.7;
-        pointer-events: none;
+        background: rgba(28, 21, 15, 0.75);
+        border: 1px solid rgba(176, 141, 87, 0.3);
+        border-radius: 6px;
+        padding: 4px 8px;
+        cursor: pointer;
+        pointer-events: auto;
         z-index: 3;
         font-variant-numeric: tabular-nums;
+        transition: all 0.2s ease;
       }
+      .version-badge:hover, .version-badge:focus-visible {
+        color: var(--bronze-hi);
+        border-color: var(--bronze);
+        background: rgba(45, 34, 24, 0.95);
+        transform: translateY(-1px);
+      }
+
       .btn {
         font-size: 18px;
         letter-spacing: 0.1em;
@@ -140,18 +212,6 @@
 
       #app.splashing header, #app.splashing footer { visibility: hidden; }
       #app.splashing::before { display: none; }
-
-
-      .icon-btn.left { right: auto; left: 14px; }
-
-      /* ---- destaque dos resultados 20 e 1 (toca uma vez, discreto) ---- */
-      #result.crit { color: var(--bronze-hi); text-shadow: 0 0 22px rgba(217, 184, 120, 0.75), 0 2px 12px rgba(0, 0, 0, 0.8); animation: crit-pop 0.9s ease-out 1; }
-      #result.fumble { color: var(--danger); text-shadow: 0 0 18px rgba(181, 82, 59, 0.55), 0 2px 12px rgba(0, 0, 0, 0.8); animation: fumble-shake 0.55s ease-in-out 1; }
-      @keyframes crit-pop { 0% { transform: scale(0.9); } 40% { transform: scale(1.16); } 100% { transform: scale(1); } }
-      @keyframes fumble-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
-      @media (prefers-reduced-motion: reduce) {
-        #result.crit, #result.fumble { animation: none; }
-      }
 
       /* ---- configurações ---- */
       .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid rgba(122, 98, 64, 0.25); }
@@ -188,7 +248,7 @@
       }
       #splash p { margin: 0; letter-spacing: 0.3em; text-transform: uppercase; font-size: 13px; color: var(--bronze-dim); }
 
-      /* ---- painéis (histórico e confirmação) ---- */
+      /* ---- painéis (histórico, atualizações e confirmação) ---- */
       .overlay {
         position: fixed;
         inset: 0;
@@ -196,7 +256,7 @@
         display: flex;
         align-items: stretch;
         justify-content: center;
-        background: rgba(8, 6, 4, 0.8);
+        background: rgba(8, 6, 4, 0.85);
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       }
       .overlay.center { align-items: center; padding: 24px; z-index: 6; }
@@ -214,6 +274,7 @@
       .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--bronze-dim); }
       .panel-head h2 { margin: 0; font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bronze); }
       .panel-head .btn { padding: 8px 16px; min-height: 44px; font-size: 15px; }
+
       #history-list { list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
       #history-list li { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid rgba(122, 98, 64, 0.25); }
       #history-list .when { color: var(--bronze-dim); font-size: 14px; }
@@ -225,20 +286,68 @@
       #history-note { color: var(--bronze-dim); font-size: 13px; }
       .confirm-text { margin: 0; line-height: 1.5; }
       .row { display: flex; gap: 12px; justify-content: flex-end; }
+
+      /* ---- atualizações / novidades ---- */
+      .changelog-content {
+        padding: 18px 20px;
+        overflow-y: auto;
+        flex: 1;
+        -webkit-overflow-scrolling: touch;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .changelog-entry {
+        background: rgba(24, 18, 12, 0.65);
+        border: 1px solid rgba(176, 141, 87, 0.25);
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+      .changelog-entry-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .version-tag {
+        font-size: 16px;
+        font-weight: bold;
+        color: var(--bronze-hi);
+        letter-spacing: 0.05em;
+      }
+      .version-current {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        background: #4a361d;
+        color: var(--bronze-hi);
+        border-radius: 4px;
+        padding: 2px 6px;
+        border: 1px solid var(--bronze);
+      }
+      .changelog-list {
+        margin: 0;
+        padding-left: 20px;
+        color: #dfd2bb;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .changelog-entry.past {
+        opacity: 0.75;
+      }
     </style>
   </head>
   <body>
     <div id="app" class="splashing">
       <header>
-        <div id="result-label">Resultado</div>
-        <div id="result" role="status" aria-live="polite" aria-label="Resultado da última rolagem">–</div>
-        <button id="settings-btn" class="icon-btn left" type="button" aria-label="Abrir configurações">
+        <button id="settings-btn" class="icon-btn" type="button" aria-label="Abrir configurações">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
             <circle cx="16" cy="7" r="2" />
             <circle cx="8" cy="17" r="2" />
           </svg>
         </button>
+        <h1 id="app-title">CritBox</h1>
         <button id="history-btn" class="icon-btn" type="button" aria-label="Abrir histórico de rolagens">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="8.5" />
@@ -248,14 +357,57 @@
       </header>
       <main id="stage"><div id="status" role="status"></div></main>
       <footer>
-        <button id="roll" class="btn" type="button">Rolar</button>
+        <nav id="dice-selector" class="dice-bar" aria-label="Seleção de tipo de dado">
+          <button class="dice-chip" data-dice="d4" type="button">D4</button>
+          <button class="dice-chip" data-dice="d6" type="button">D6</button>
+          <button class="dice-chip" data-dice="d8" type="button">D8</button>
+          <button class="dice-chip" data-dice="d10" type="button">D10</button>
+          <button class="dice-chip" data-dice="d12" type="button">D12</button>
+          <button class="dice-chip active" data-dice="d20" type="button" aria-current="true">D20</button>
+          <button class="dice-chip" data-dice="d100" type="button">D100</button>
+        </nav>
       </footer>
-      <div id="app-version" aria-hidden="true"></div>
+      <button id="app-version" class="version-badge" type="button" aria-haspopup="dialog" aria-label="Ver histórico de atualizações"></button>
     </div>
 
     <div id="splash" role="presentation">
       <h1>CritBox</h1>
       <p>Bioma Labs</p>
+    </div>
+
+    <div id="changelog" class="overlay" hidden>
+      <section class="panel" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
+        <div class="panel-head">
+          <h2 id="changelog-title">Atualizações</h2>
+          <button id="changelog-close" class="btn plain" type="button">Fechar</button>
+        </div>
+        <div class="changelog-content">
+          <article class="changelog-entry">
+            <div class="changelog-entry-head">
+              <span class="version-tag">Versão 0.2.0</span>
+              <span class="version-current">Atual</span>
+            </div>
+            <ul class="changelog-list">
+              <li>Dado em marfim clássico polido com numeração entalhada de alta definição.</li>
+              <li>O número sorteado acende com brilho dourado diretamente na face do dado.</li>
+              <li>Mesa de jogo com toalha de feltro de lã escura.</li>
+              <li>Sons autênticos de marfim rolando e colidindo na madeira da mesa.</li>
+              <li>O dado fica 25% menor durante o arremesso para dar mais espaço à trajetória.</li>
+              <li>Barra de seleção de dados de RPG na base da tela (D4, D6, D8, D10, D12, D20, D100).</li>
+              <li>Rolagem simplificada: basta tocar ou puxar o dado diretamente na mesa.</li>
+            </ul>
+          </article>
+          <article class="changelog-entry past">
+            <div class="changelog-entry-head">
+              <span class="version-tag">Versão 0.1.0</span>
+            </div>
+            <ul class="changelog-list">
+              <li>Lançamento inicial do CritBox com rolagem do D20 em 3D.</li>
+              <li>Histórico de jogadas, vibração tátil e configurações de áudio.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
     </div>
 
     <div id="history" class="overlay" hidden>
@@ -272,7 +424,6 @@
         </div>
       </section>
     </div>
-
 
     <div id="settings" class="overlay" hidden>
       <section class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">

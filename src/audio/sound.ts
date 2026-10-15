@@ -112,21 +112,30 @@ export class SoundPlayer {
     osc.stop(start + opts.dur + 0.02);
   }
 
+  /** Som do arremesso: atrito de marfim e mesa de madeira. */
   private whoosh(ctx: AudioContext, out: AudioNode, t: number): void {
-    this.burst(ctx, out, t, { type: 'bandpass', from: 500, to: 2400, dur: 0.22, gain: 0.35, q: 0.8 });
+    this.burst(ctx, out, t, { type: 'bandpass', from: 350, to: 1600, dur: 0.24, gain: 0.28, q: 1.2 });
+    this.tone(ctx, out, t, { type: 'sine', freq: 140, endFreq: 80, dur: 0.18, gain: 0.15 });
   }
 
-  /** Estalo metálico de impacto; mais fraco e mais grave a cada quique. */
+  /** Impacto de marfim denso contra borda e mesa de madeira: estalo nítido e ressonância oca de madeira. */
   private clack(ctx: AudioContext, out: AudioNode, t: number, strength: number): void {
     const s = Math.min(Math.max(strength, 0.15), 1);
-    const pitch = 900 + Math.random() * 500;
-    this.burst(ctx, out, t, { type: 'highpass', from: 2500, to: 1500, dur: 0.05, gain: 0.5 * s });
-    this.tone(ctx, out, t, { type: 'triangle', freq: pitch, endFreq: pitch * 0.7, dur: 0.12, gain: 0.3 * s });
+    const clickFreq = 2600 + Math.random() * 600;
+    const woodResonance = 190 + Math.random() * 40;
+
+    // Estalo seco característico do marfim polido
+    this.burst(ctx, out, t, { type: 'bandpass', from: clickFreq, to: clickFreq * 0.6, dur: 0.035, gain: 0.45 * s, q: 3.5 });
+
+    // Ressonância do corpo de madeira da mesa / anteparo
+    this.tone(ctx, out, t, { type: 'triangle', freq: woodResonance, endFreq: woodResonance * 0.65, dur: 0.11, gain: 0.38 * s });
+    this.burst(ctx, out, t, { type: 'lowpass', from: 800, to: 150, dur: 0.06, gain: 0.25 * s });
   }
 
+  /** Parada final na mesa de feltro de lã sobre madeira: baque macio e abafado. */
   private thud(ctx: AudioContext, out: AudioNode, t: number): void {
-    this.tone(ctx, out, t, { type: 'sine', freq: 170, endFreq: 90, dur: 0.18, gain: 0.45 });
-    this.burst(ctx, out, t, { type: 'lowpass', from: 900, to: 300, dur: 0.08, gain: 0.25 });
+    this.tone(ctx, out, t, { type: 'sine', freq: 130, endFreq: 65, dur: 0.15, gain: 0.35 });
+    this.burst(ctx, out, t, { type: 'lowpass', from: 450, to: 120, dur: 0.07, gain: 0.2 });
   }
 
   /** Vitória (20): arpejo ascendente curto e brilhante. */
