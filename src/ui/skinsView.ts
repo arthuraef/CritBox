@@ -31,6 +31,7 @@ export function setupSkinsView(
 
       const item = document.createElement('li');
       item.className = `skin-item ${isActive ? 'active' : ''} ${!isUnlocked ? 'locked' : ''}`;
+      item.dataset.skin = skin.id;
 
       const preview = document.createElement('div');
       preview.className = 'skin-preview-swatch';
@@ -76,6 +77,7 @@ export function setupSkinsView(
         const equipBtn = document.createElement('button');
         equipBtn.type = 'button';
         equipBtn.className = 'btn plain';
+        equipBtn.dataset.skin = skin.id;
         equipBtn.textContent = 'Equipar';
         equipBtn.addEventListener('click', () => {
           skinsStore.select(skin.id);
@@ -87,6 +89,7 @@ export function setupSkinsView(
         const unlockBtn = document.createElement('button');
         unlockBtn.type = 'button';
         unlockBtn.className = 'btn danger';
+        unlockBtn.dataset.skin = skin.id;
         unlockBtn.textContent = 'Desbloquear';
         unlockBtn.addEventListener('click', () => {
           void adProvider.show({

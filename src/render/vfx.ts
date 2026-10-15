@@ -249,13 +249,32 @@ export class RollVFX {
     this.emitBurst(pos, count);
   }
 
-  onSettle(): void {
+  onSettle(result?: number): void {
     this.isRolling = false;
-    this.auraPulseMs = 600; // pulso dourado intenso ao repousar no centro
-    this.auraBaseOpacity = 0.25;
-
-    // Pequenas faíscas suaves douradas que coroam a parada no centro
-    this.emitBurst([0, 0.1, 0], 12);
+    if (result === 20) {
+      // Sucesso Crítico (Baldur's Gate 3): pulso radiante dourado, ondas expansivas e faíscas ascendentes
+      this.auraPulseMs = 1200;
+      this.auraBaseOpacity = 0.85;
+      this.impactLight.color.setHex(0xffd700);
+      this.impactLight.position.set(0, 0.8, 0);
+      this.impactLight.intensity = 6.0;
+      this.triggerShockwave(0, 0, 2.5);
+      this.emitBurst([0, 0.1, 0], 36, { r: 1.0, g: 0.85, b: 0.2 });
+    } else if (result === 1) {
+      // Falha Crítica (Baldur's Gate 3): pulso carmesim rubi sombrio
+      this.auraPulseMs = 1000;
+      this.auraBaseOpacity = 0.75;
+      this.impactLight.color.setHex(0xff2244);
+      this.impactLight.position.set(0, 0.7, 0);
+      this.impactLight.intensity = 5.0;
+      this.triggerShockwave(0, 0, 2.0);
+      this.emitBurst([0, 0.1, 0], 28, { r: 1.0, g: 0.12, b: 0.22 });
+    } else {
+      this.auraPulseMs = 600;
+      this.auraBaseOpacity = 0.25;
+      this.impactLight.color.setHex(0xffbe44);
+      this.emitBurst([0, 0.1, 0], 12);
+    }
   }
 
   private triggerShockwave(x: number, z: number, scaleFactor: number): void {
@@ -270,7 +289,7 @@ export class RollVFX {
     ring.mesh.visible = true;
   }
 
-  private emitBurst(origin: Vec3, count: number): void {
+  private emitBurst(origin: Vec3, count: number, color?: { r: number; g: number; b: number }): void {
     let spawned = 0;
     for (const p of this.particles) {
       if (spawned >= count) break;
@@ -290,9 +309,15 @@ export class RollVFX {
         p.lifeMs = 0;
         p.maxLifeMs = 280 + Math.random() * 250;
         p.size = 0.24 + Math.random() * 0.15;
-        p.r = 1.0;
-        p.g = 0.75 + Math.random() * 0.25;
-        p.b = 0.2 + Math.random() * 0.2;
+        if (color) {
+          p.r = color.r;
+          p.g = color.g;
+          p.b = color.b;
+        } else {
+          p.r = 1.0;
+          p.g = 0.75 + Math.random() * 0.25;
+          p.b = 0.2 + Math.random() * 0.2;
+        }
         spawned++;
       }
     }

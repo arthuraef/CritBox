@@ -349,9 +349,9 @@ export class DiceScene {
     this.vfx.onImpact(pos, strength);
   }
 
-  /** Repouso final no centro: pulso dourado intenso da aura rúnica. */
-  onSettle(): void {
-    this.vfx.onSettle();
+  /** Repouso final no centro: pulso luminoso da aura rúnica com efeitos críticos especiais. */
+  onSettle(result?: number): void {
+    this.vfx.onSettle(result);
   }
 
   /** Atualiza partículas, luzes e animações de VFX a cada quadro. */

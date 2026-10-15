@@ -224,7 +224,7 @@ function frame(now: number): void {
       if (ev.kind === 'impact') {
         scene.onImpact(pose.position, ev.strength);
       } else if (ev.kind === 'settle') {
-        scene.onSettle();
+        scene.onSettle(active.ticket.result);
       }
     }
     scene.updateVFX(dt, pose.position, true);
