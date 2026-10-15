@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { D20, dot, type Quat, type Vec3 } from '../core/d20.ts';
 import { ATLAS_COLS, ATLAS_ROWS, faceUVs } from './atlas.ts';
 import { RollVFX } from './vfx.ts';
+import { SKINS_CATALOG, type DiceSkin } from '../core/skins.ts';
 
 export const DICE_SCALE = 0.8;
 
@@ -92,20 +93,22 @@ function createIvoryEnvMap(): THREE.CanvasTexture {
 }
 
 /**
- * Desenha o atlas com numeração de alta resolução gravada no marfim.
- * Quando `highlightedNumber` for informado, a face correspondente recebe destaque luminoso dourado.
+ * Desenha o atlas com numeração de alta resolução gravada no material da skin.
+ * Quando `highlightedNumber` for informado, a face correspondente recebe destaque luminoso.
+ * Em 20 (Sucesso Crítico) emite brilho dourado e em 1 (Falha Crítica) emite rubi carmesim (estilo Baldur's Gate 3).
  */
 function drawNumberAtlas(
   canvas: HTMLCanvasElement,
   highlightedNumber: number | null = null,
+  skin: DiceSkin = SKINS_CATALOG[0],
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     throw new Error('Canvas 2D indisponível.');
   }
 
-  // Fundo marfim acetinado
-  ctx.fillStyle = '#faf5e9';
+  // Cor base do material da skin
+  ctx.fillStyle = skin.previewColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.textAlign = 'center';
@@ -121,65 +124,74 @@ function drawNumberAtlas(
     const isHighlighted = value === highlightedNumber;
 
     if (isHighlighted) {
-      // Destaque na própria face do dado: halo radial dourado radiante
-      const glow = ctx.createRadialGradient(cx, cy, CELL_PX * 0.05, cx, cy, CELL_PX * 0.42);
-      glow.addColorStop(0, 'rgba(255, 235, 140, 0.95)');
-      glow.addColorStop(0.4, 'rgba(230, 165, 45, 0.7)');
-      glow.addColorStop(0.8, 'rgba(180, 110, 20, 0.35)');
-      glow.addColorStop(1, 'rgba(140, 80, 15, 0)');
+      const isCrit = value === 20;
+      const isFumble = value === 1;
+
+      // Halo radial: dourado radiante para 20, carmesim vívido para 1, ouro suave para os demais
+      const glow = ctx.createRadialGradient(cx, cy, CELL_PX * 0.05, cx, cy, CELL_PX * 0.44);
+      if (isFumble) {
+        glow.addColorStop(0, 'rgba(255, 60, 80, 0.95)');
+        glow.addColorStop(0.4, 'rgba(215, 30, 45, 0.7)');
+        glow.addColorStop(0.8, 'rgba(160, 15, 25, 0.35)');
+        glow.addColorStop(1, 'rgba(100, 10, 15, 0)');
+      } else {
+        glow.addColorStop(0, 'rgba(255, 235, 140, 0.95)');
+        glow.addColorStop(0.4, 'rgba(230, 165, 45, 0.7)');
+        glow.addColorStop(0.8, 'rgba(180, 110, 20, 0.35)');
+        glow.addColorStop(1, 'rgba(140, 80, 15, 0)');
+      }
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(cx, cy, CELL_PX * 0.44, 0, Math.PI * 2);
       ctx.fill();
 
-      // Círculo fino dourado envolvente
-      ctx.strokeStyle = 'rgba(255, 220, 100, 0.85)';
+      // Círculo fino envolvente
+      ctx.strokeStyle = isFumble ? 'rgba(255, 80, 100, 0.9)' : (isCrit ? 'rgba(255, 220, 100, 0.95)' : skin.material.highlightStroke);
       ctx.lineWidth = CELL_PX * 0.015;
       ctx.beginPath();
       ctx.arc(cx, cy, CELL_PX * 0.34, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Número iluminado em ouro vibrante com brilho intenso
-      ctx.shadowColor = 'rgba(255, 215, 50, 0.9)';
+      // Número iluminado com glow e contorno vibrante
+      ctx.shadowColor = isFumble ? 'rgba(255, 50, 70, 0.95)' : 'rgba(255, 215, 50, 0.95)';
       ctx.shadowBlur = 18;
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = isFumble ? '#ffedf0' : skin.material.highlightColor;
       ctx.fillText(String(value), cx, cy);
 
-      ctx.strokeStyle = '#d49b28';
+      ctx.strokeStyle = isFumble ? '#c41829' : skin.material.highlightStroke;
       ctx.lineWidth = CELL_PX * 0.02;
       ctx.strokeText(String(value), cx, cy);
       ctx.shadowBlur = 0;
     } else {
-      // Número gravado em marfim tradicional (sulco profundo de verniz castanho-escuro)
-      // 1. Sombra interna superior-esquerda (relevo para dentro)
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-      ctx.fillText(String(value), cx - 1.5, cy - 1.5);
+      // Número gravado no material
+      const isDarkSkin = skin.id !== 'ivory';
+      if (isDarkSkin) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillText(String(value), cx + 1.5, cy + 1.5);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fillText(String(value), cx - 1.5, cy - 1.5);
+      } else {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fillText(String(value), cx - 1.5, cy - 1.5);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.fillText(String(value), cx + 1.5, cy + 1.5);
+      }
 
-      // 2. Reflexo chanfrado inferior-direito (luz no entalhe)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-      ctx.fillText(String(value), cx + 1.5, cy + 1.5);
-
-      // 3. Preenchimento principal profundo
-      ctx.fillStyle = '#22160b';
+      ctx.fillStyle = skin.material.numberColor;
       ctx.fillText(String(value), cx, cy);
     }
 
     if (value === 6 || value === 9) {
-      // Sublinhado clássico entalhado para distinguir 6 de 9
       const w = ctx.measureText(String(value)).width * 0.9;
       const uy = cy + CELL_PX * 0.22;
       const uh = CELL_PX * 0.028;
       if (isHighlighted) {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(cx - w / 2, uy, w, uh);
-        ctx.fillStyle = '#d49b28';
+        ctx.fillStyle = skin.material.highlightStroke;
         ctx.fillRect(cx - w / 2, uy - 1, w, 2);
       } else {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-        ctx.fillRect(cx - w / 2 - 1, uy - 1, w, uh);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.fillRect(cx - w / 2 + 1, uy + 1, w, uh);
-        ctx.fillStyle = '#22160b';
+        ctx.fillStyle = skin.material.numberColor;
         ctx.fillRect(cx - w / 2, uy, w, uh);
       }
     }
@@ -219,6 +231,8 @@ export class DiceScene {
   private readonly tableMesh: THREE.Mesh;
 
   private currentScaleFactor = 1.0;
+  private currentSkin: DiceSkin = SKINS_CATALOG[0];
+  private highlightedValue: number | null = null;
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -305,9 +319,22 @@ export class DiceScene {
     new ResizeObserver(() => this.resize()).observe(container);
   }
 
-  /** Destaca o número sorteado diretamente na face do dado com brilho dourado radiante. */
+  /** Aplica uma nova skin PBR e redesenha o atlas de texturas. */
+  setSkin(skin: DiceSkin): void {
+    this.currentSkin = skin;
+    this.material.color.setHex(skin.material.color);
+    this.material.roughness = skin.material.roughness;
+    this.material.metalness = skin.material.metalness;
+    this.material.clearcoat = skin.material.clearcoat;
+    this.material.clearcoatRoughness = skin.material.clearcoatRoughness;
+    drawNumberAtlas(this.atlasCanvas, this.highlightedValue, this.currentSkin);
+    this.atlasTexture.needsUpdate = true;
+  }
+
+  /** Destaca o número sorteado diretamente na face do dado com brilho e cor adequados à skin. */
   highlightResult(result: number | null): void {
-    drawNumberAtlas(this.atlasCanvas, result);
+    this.highlightedValue = result;
+    drawNumberAtlas(this.atlasCanvas, result, this.currentSkin);
     this.atlasTexture.needsUpdate = true;
   }
 

@@ -19,6 +19,8 @@
         --bronze-hi: #d9b878;
         --text: #e9dcc3;
         --danger: #b5523b;
+        --crit-gold: #ffd700;
+        --fumble-red: #ff334b;
       }
       * { box-sizing: border-box; }
       html, body {
@@ -49,7 +51,7 @@
         flex-direction: column;
       }
 
-      /* ---- moldura em bronze envelhecido ---- */
+      /* ---- moldura externa em bronze envelhecido ---- */
       #app::before {
         content: '';
         position: absolute;
@@ -67,9 +69,15 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 12px;
         min-height: 64px;
         padding: 12px 18px 8px;
         z-index: 2;
+      }
+      .header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
       }
       #app-title {
         margin: 0;
@@ -98,11 +106,72 @@
         border-color: var(--bronze-hi);
         transform: scale(1.04);
       }
-      .icon-btn svg { width: 24px; height: 24px; stroke: var(--bronze-hi); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-btn svg { width: 22px; height: 22px; stroke: var(--bronze-hi); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
       #stage { position: relative; flex: 1; min-height: 0; touch-action: none; cursor: grab; }
       #stage:active { cursor: grabbing; }
       #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+      /* ---- moldura ornamental central Art Deco / Fantasia ---- */
+      .stage-filigree {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(84vw, 420px);
+        height: min(84vw, 420px);
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.42;
+        transition: opacity 0.3s ease;
+      }
+
+      /* ---- banner de Sucesso Crítico e Falha Crítica estilo Baldur's Gate 3 ---- */
+      .crit-banner {
+        position: absolute;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        pointer-events: none;
+        z-index: 2;
+        animation: banner-appear 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .crit-banner-text {
+        font-size: clamp(20px, 5.5vw, 28px);
+        font-weight: bold;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .crit-decor {
+        width: 140px;
+        height: 2px;
+        background: linear-gradient(90deg, transparent 0%, var(--bronze-hi) 50%, transparent 100%);
+      }
+      .crit-banner.success .crit-banner-text {
+        color: var(--crit-gold);
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.85), 0 2px 10px rgba(0, 0, 0, 0.9);
+      }
+      .crit-banner.success .crit-decor {
+        background: linear-gradient(90deg, transparent 0%, var(--crit-gold) 50%, transparent 100%);
+      }
+      .crit-banner.failure .crit-banner-text {
+        color: var(--fumble-red);
+        text-shadow: 0 0 18px rgba(255, 51, 75, 0.8), 0 2px 10px rgba(0, 0, 0, 0.9);
+      }
+      .crit-banner.failure .crit-decor {
+        background: linear-gradient(90deg, transparent 0%, var(--fumble-red) 50%, transparent 100%);
+      }
+
+      @keyframes banner-appear {
+        from { opacity: 0; transform: translate(-50%, 14px) scale(0.92); }
+        to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      }
+
       #status {
         position: absolute;
         left: 0;
@@ -195,19 +264,21 @@
       }
 
       .btn {
-        font-size: 18px;
-        letter-spacing: 0.1em;
+        font-size: 16px;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         background: linear-gradient(#3a2b1c, #231a11);
         border: 1px solid var(--bronze);
         border-radius: 10px;
-        padding: 14px 40px;
-        min-height: 48px;
+        padding: 10px 24px;
+        min-height: 44px;
         cursor: pointer;
+        transition: all 0.15s ease;
       }
+      .btn:hover { border-color: var(--bronze-hi); }
       .btn:disabled { opacity: 0.45; cursor: default; }
       .btn.danger { border-color: var(--danger); color: #f0c9bd; }
-      .btn.plain { background: transparent; padding: 14px 24px; }
+      .btn.plain { background: transparent; padding: 10px 18px; border-color: rgba(176, 141, 87, 0.4); }
       .btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 2px; }
 
       #app.splashing header, #app.splashing footer { visibility: hidden; }
@@ -248,7 +319,7 @@
       }
       #splash p { margin: 0; letter-spacing: 0.3em; text-transform: uppercase; font-size: 13px; color: var(--bronze-dim); }
 
-      /* ---- painéis (histórico, atualizações e confirmação) ---- */
+      /* ---- painéis e modais ---- */
       .overlay {
         position: fixed;
         inset: 0;
@@ -270,10 +341,59 @@
         box-shadow: 0 0 0 4px rgba(176, 141, 87, 0.07);
       }
       .overlay:not(.center) .panel { border-top: 0; border-bottom: 0; }
-      .overlay.center .panel { border-radius: 14px; padding: 24px; gap: 20px; max-width: 360px; }
+      .overlay.center .panel { border-radius: 14px; padding: 24px; gap: 20px; max-width: 380px; }
       .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--bronze-dim); }
       .panel-head h2 { margin: 0; font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bronze); }
       .panel-head .btn { padding: 8px 16px; min-height: 44px; font-size: 15px; }
+
+      /* ---- catálogo de skins ---- */
+      #skins-list { list-style: none; margin: 0; padding: 12px 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+      .skin-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 16px;
+        background: rgba(26, 20, 14, 0.7);
+        border: 1px solid rgba(176, 141, 87, 0.25);
+        border-radius: 12px;
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+      .skin-item.active {
+        border-color: var(--bronze-hi);
+        background: linear-gradient(90deg, rgba(77, 54, 32, 0.45) 0%, rgba(36, 26, 18, 0.8) 100%);
+        box-shadow: 0 0 12px rgba(217, 184, 120, 0.2);
+      }
+      .skin-preview-swatch {
+        width: 46px;
+        height: 46px;
+        border-radius: 10px;
+        flex: none;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.2), 0 3px 8px rgba(0, 0, 0, 0.6);
+      }
+      .skin-info { flex: 1; min-width: 0; }
+      .skin-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+      .skin-title-row h3 { margin: 0; font-size: 16px; color: var(--text); letter-spacing: 0.05em; }
+      .skin-badge {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+      .skin-badge.active { background: #4a361d; color: var(--bronze-hi); border: 1px solid var(--bronze); }
+      .skin-badge.reward { background: #521d1d; color: #ffb4b4; border: 1px solid #a83636; }
+      .skin-info p { margin: 0; font-size: 12px; color: var(--bronze-dim); line-height: 1.4; }
+      .skin-action { flex: none; }
+      .skin-equipped-text { font-size: 12px; color: var(--bronze-hi); font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; }
+
+      /* ---- simulador de anúncio recompensado ---- */
+      .ad-box { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .ad-badge { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; background: #3d2b1a; color: var(--bronze-hi); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--bronze); }
+      .ad-timer-text { font-size: 24px; font-weight: bold; color: var(--bronze-hi); margin: 6px 0; }
+      .ad-progress-bar { width: 100%; height: 6px; background: #2c2217; border-radius: 3px; overflow: hidden; }
+      .ad-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--bronze) 0%, var(--bronze-hi) 100%); transition: width 0.3s linear; }
 
       #history-list { list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
       #history-list li { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid rgba(122, 98, 64, 0.25); }
@@ -340,13 +460,23 @@
   <body>
     <div id="app" class="splashing">
       <header>
-        <button id="settings-btn" class="icon-btn" type="button" aria-label="Abrir configurações">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-            <circle cx="16" cy="7" r="2" />
-            <circle cx="8" cy="17" r="2" />
-          </svg>
-        </button>
+        <div class="header-actions">
+          <button id="settings-btn" class="icon-btn" type="button" aria-label="Abrir configurações">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+              <circle cx="16" cy="7" r="2" />
+              <circle cx="8" cy="17" r="2" />
+            </svg>
+          </button>
+          <button id="skins-btn" class="icon-btn" type="button" aria-label="Abrir catálogo de skins do D20">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <polygon points="12 2 2 8.5 2 15.5 12 22 22 15.5 22 8.5 12 2" />
+              <line x1="12" y1="22" x2="12" y2="12" />
+              <line x1="2" y1="8.5" x2="12" y2="12" />
+              <line x1="22" y1="8.5" x2="12" y2="12" />
+            </svg>
+          </button>
+        </div>
         <h1 id="app-title">CritBox</h1>
         <button id="history-btn" class="icon-btn" type="button" aria-label="Abrir histórico de rolagens">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -355,7 +485,41 @@
           </svg>
         </button>
       </header>
-      <main id="stage"><div id="status" role="status"></div></main>
+
+      <main id="stage">
+        <!-- Moldura ornamental Art Deco / Fantasia inspirada nas referências -->
+        <svg class="stage-filigree" viewBox="0 0 400 400" aria-hidden="true">
+          <!-- Moldura geométrica concêntrica -->
+          <rect x="20" y="20" width="360" height="360" rx="12" fill="none" stroke="#b08d57" stroke-width="1.4" opacity="0.7" />
+          <rect x="36" y="36" width="328" height="328" rx="8" fill="none" stroke="#967b55" stroke-width="1" opacity="0.5" />
+
+          <!-- Círculo central da arena do dado -->
+          <circle cx="200" cy="200" r="130" fill="none" stroke="#b08d57" stroke-width="1.8" opacity="0.8" />
+          <circle cx="200" cy="200" r="142" fill="none" stroke="#967b55" stroke-width="1" stroke-dasharray="4 4" opacity="0.6" />
+          <circle cx="200" cy="200" r="114" fill="none" stroke="#d9b878" stroke-width="0.8" opacity="0.4" />
+
+          <!-- Entalhes nos cantos e cantoneiras Art Deco -->
+          <path d="M20 60 L60 20 M380 60 L340 20 M20 340 L60 380 M380 340 L340 380" stroke="#b08d57" stroke-width="1.6" fill="none" />
+          <path d="M60 20 L200 70 L340 20" stroke="#967b55" stroke-width="1" fill="none" opacity="0.5" />
+          <path d="M60 380 L200 330 L340 380" stroke="#967b55" stroke-width="1" fill="none" opacity="0.5" />
+
+          <!-- Losangos de detalhe nos 4 pontos cardeais -->
+          <polygon points="200 48 206 56 200 64 194 56" fill="#d9b878" opacity="0.8" />
+          <polygon points="200 352 206 344 200 336 194 344" fill="#d9b878" opacity="0.8" />
+          <polygon points="48 200 56 206 64 200 56 194" fill="#d9b878" opacity="0.8" />
+          <polygon points="352 200 344 206 336 200 344 194" fill="#d9b878" opacity="0.8" />
+        </svg>
+
+        <!-- Banner de Sucesso Crítico (20) / Falha Crítica (1) -->
+        <div id="crit-banner" class="crit-banner" hidden>
+          <div class="crit-decor top"></div>
+          <span id="crit-banner-text" class="crit-banner-text">CRITICAL SUCCESS</span>
+          <div class="crit-decor bottom"></div>
+        </div>
+
+        <div id="status" role="status"></div>
+      </main>
+
       <footer>
         <nav id="dice-selector" class="dice-bar" aria-label="Seleção de tipo de dado">
           <button class="dice-chip" data-dice="d4" type="button">D4</button>
@@ -375,6 +539,32 @@
       <p>Bioma Labs</p>
     </div>
 
+    <!-- Modal de Catálogo de Skins -->
+    <div id="skins-modal" class="overlay" hidden>
+      <section class="panel" role="dialog" aria-modal="true" aria-labelledby="skins-title">
+        <div class="panel-head">
+          <h2 id="skins-title">Skins do D20</h2>
+          <button id="skins-close" class="btn plain" type="button">Fechar</button>
+        </div>
+        <ul id="skins-list"></ul>
+      </section>
+    </div>
+
+    <!-- Modal de Anúncio Recompensado (Simulador Web/PWA) -->
+    <div id="ad-modal" class="overlay center" hidden>
+      <section class="panel ad-box" role="alertdialog" aria-modal="true" aria-labelledby="ad-title">
+        <span class="ad-badge">Anúncio Recompensado</span>
+        <h2 id="ad-title" style="margin:0; font-size: 20px; color: var(--bronze-hi);">Desbloqueando Skin Especial</h2>
+        <p style="margin:0; font-size: 14px; color: var(--text);">Aguarde a conclusão para resgatar sua nova skin permanente.</p>
+        <div id="ad-timer" class="ad-timer-text">5s</div>
+        <div class="ad-progress-bar">
+          <div id="ad-progress" class="ad-progress-fill"></div>
+        </div>
+        <button id="ad-close-btn" class="btn" type="button" disabled>Aguarde...</button>
+      </section>
+    </div>
+
+    <!-- Modal de Histórico de Atualizações -->
     <div id="changelog" class="overlay" hidden>
       <section class="panel" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
         <div class="panel-head">
@@ -384,17 +574,26 @@
         <div class="changelog-content">
           <article class="changelog-entry">
             <div class="changelog-entry-head">
-              <span class="version-tag">Versão 0.2.0</span>
+              <span class="version-tag">Versão 0.3.0</span>
               <span class="version-current">Atual</span>
+            </div>
+            <ul class="changelog-list">
+              <li>Catálogo de skins do D20: Marfim Clássico, Metal Escurecido e Chama do Dragão.</li>
+              <li>Desbloqueio de skins especiais por anúncio recompensado permanente.</li>
+              <li>Nova moldura ornamental inspirada em RPG clássico e referências medievais.</li>
+              <li>Avisos visuais de Sucesso Crítico (20) em ouro e Falha Crítica (1) em rubi carmesim.</li>
+            </ul>
+          </article>
+          <article class="changelog-entry past">
+            <div class="changelog-entry-head">
+              <span class="version-tag">Versão 0.2.0</span>
             </div>
             <ul class="changelog-list">
               <li>Dado em marfim clássico polido com numeração entalhada de alta definição.</li>
               <li>O número sorteado acende com brilho dourado diretamente na face do dado.</li>
               <li>Mesa de jogo com toalha de feltro de lã escura.</li>
               <li>Sons autênticos de marfim rolando e colidindo na madeira da mesa.</li>
-              <li>O dado fica 25% menor durante o arremesso para dar mais espaço à trajetória.</li>
               <li>Barra de seleção de dados de RPG na base da tela (D4, D6, D8, D10, D12, D20, D100).</li>
-              <li>Rolagem simplificada: basta tocar ou puxar o dado diretamente na mesa.</li>
             </ul>
           </article>
           <article class="changelog-entry past">
@@ -410,6 +609,7 @@
       </section>
     </div>
 
+    <!-- Modal de Histórico -->
     <div id="history" class="overlay" hidden>
       <section class="panel" role="dialog" aria-modal="true" aria-labelledby="history-title">
         <div class="panel-head">
@@ -425,6 +625,7 @@
       </section>
     </div>
 
+    <!-- Modal de Configurações -->
     <div id="settings" class="overlay" hidden>
       <section class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="panel-head">
@@ -445,6 +646,7 @@
       </section>
     </div>
 
+    <!-- Confirmação -->
     <div id="confirm" class="overlay center" hidden>
       <section class="panel" role="alertdialog" aria-modal="true" aria-labelledby="confirm-text">
         <p id="confirm-text" class="confirm-text">Apagar todo o histórico de rolagens? Suas skins não serão afetadas.</p>

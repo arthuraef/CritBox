@@ -12,11 +12,17 @@ import { hapticsSupported, vibrate } from './audio/haptics.ts';
 import { setupSettingsView } from './ui/settingsView.ts';
 import { setupChangelogView } from './ui/changelogView.ts';
 import { setupDiceSelector } from './ui/diceSelector.ts';
+import { SkinsStore } from './core/skins.ts';
+import { WebMockRewardedAdProvider } from './core/ads.ts';
+import { setupSkinsView } from './ui/skinsView.ts';
 
 declare const __APP_VERSION__: string;
 
 const stage = document.getElementById('stage') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
+const critBanner = document.getElementById('crit-banner') as HTMLElement | null;
+const critBannerText = document.getElementById('crit-banner-text') as HTMLElement | null;
+
 const versionEl = document.getElementById('app-version');
 if (versionEl && typeof __APP_VERSION__ !== 'undefined') {
   versionEl.textContent = `v${__APP_VERSION__}`;
@@ -45,7 +51,12 @@ function openStorage(): KeyValueStorage | null {
 const storage = openStorage();
 const history = new HistoryStore(storage);
 const settings = new SettingsStore(storage);
+const skins = new SkinsStore(storage);
+const adProvider = new WebMockRewardedAdProvider();
 const sound = new SoundPlayer();
+
+// Aplica a skin selecionada à cena 3D
+scene.setSkin(skins.activeSkin);
 
 /** Toca som e vibração conforme as configurações. Nunca lança nem altera a rolagem. */
 function emit(kind: FeedbackKind, strength = 1): void {
@@ -64,6 +75,17 @@ setupHistoryView(history, () => {
 });
 setupChangelogView();
 setupDiceSelector();
+setupSkinsView(
+  skins,
+  adProvider,
+  (newSkin) => {
+    scene.setSkin(newSkin);
+    requestRender();
+  },
+  () => {
+    emit('crit');
+  },
+);
 
 // ----- splash: D20 girando enquanto os recursos essenciais carregam -----
 const appEl = document.getElementById('app') as HTMLElement;
@@ -106,6 +128,9 @@ function startRoll(): void {
   if (ticket === null) {
     return; // já rolando: ignora
   }
+
+  if (critBanner) critBanner.hidden = true;
+
   const bounds = scene.getPlayfieldBounds();
   const plan = planRoll({
     start: scene.orientation,
@@ -131,7 +156,21 @@ function finishRoll(roll: ActiveRoll): void {
       // Destaque luminoso do número sorteado diretamente na face do dado
       scene.highlightResult(record.result);
 
-      // Efeito especial para 20 ou 1
+      // Banners e efeitos especiais para 20 (Sucesso Crítico) e 1 (Falha Crítica) estilo Baldur's Gate 3
+      if (critBanner && critBannerText) {
+        if (record.result === 20) {
+          critBanner.className = 'crit-banner success';
+          critBannerText.textContent = 'CRITICAL SUCCESS';
+          critBanner.hidden = false;
+        } else if (record.result === 1) {
+          critBanner.className = 'crit-banner failure';
+          critBannerText.textContent = 'CRITICAL FAILURE';
+          critBanner.hidden = false;
+        } else {
+          critBanner.hidden = true;
+        }
+      }
+
       const special = specialFor(record.result);
       if (special !== null) {
         emit(special);
