@@ -103,11 +103,14 @@ function startRoll(): void {
   if (ticket === null) {
     return; // já rolando: ignora
   }
+  const bounds = scene.getPlayfieldBounds();
   const plan = planRoll({
     start: scene.orientation,
     target: orientationForFace(ticket.result, uprightYaw(ticket.result)),
     random: visualRandom,
     throwHeight: 0.7,
+    bounds,
+    startPosition: scene.position2D,
   });
   const events: FeedbackEvent[] = planFeedback(plan); // não depende do resultado
   active = { ticket, plan, startedAt: performance.now(), cursor: new EventCursor(events) };

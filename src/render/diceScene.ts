@@ -7,8 +7,10 @@ import * as THREE from 'three';
 import { D20, dot, type Quat, type Vec3 } from '../core/d20.ts';
 import { ATLAS_COLS, ATLAS_ROWS, faceUVs } from './atlas.ts';
 
+export const DICE_SCALE = 0.8;
+
 /** Altura do centro do dado quando uma face está apoiada na mesa (raio do inscrito). */
-export const REST_HEIGHT = dot(D20.faces[0].normal, D20.faces[0].centroid);
+export const REST_HEIGHT = dot(D20.faces[0].normal, D20.faces[0].centroid) * DICE_SCALE;
 
 const CELL_PX = 256;
 
@@ -83,6 +85,7 @@ export class DiceScene {
       roughness: 0.5,
     });
     this.dice = new THREE.Mesh(buildGeometry(), this.material);
+    this.dice.scale.set(DICE_SCALE, DICE_SCALE, DICE_SCALE);
     this.dice.position.y = REST_HEIGHT;
     this.scene.add(this.dice);
 
@@ -105,6 +108,25 @@ export class DiceScene {
     new ResizeObserver(() => this.resize()).observe(container);
   }
 
+  /**
+   * Limites visíveis da mesa (em X e Z) onde o centro do dado pode se mover sem sair da margem da tela.
+   */
+  getPlayfieldBounds(): { minX: number; maxX: number; minZ: number; maxZ: number } {
+    // A câmera está em Y=6.5 (ou 7.5), olhando para Y=0, com up=(0, 0, -1).
+    // O topo da tela é -Z e a base da tela é +Z.
+    const h = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.position.y;
+    const w = h * this.camera.aspect;
+    const margin = DICE_SCALE * 1.15; // raio do dado com margem de segurança
+    const halfW = Math.max(w / 2 - margin, 0.4);
+    const halfH = Math.max(h / 2 - margin, 0.4);
+    return {
+      minX: -halfW,
+      maxX: halfW,
+      minZ: -halfH,
+      maxZ: halfH,
+    };
+  }
+
   /** Aplica uma pose: deslocamento em relação ao repouso e orientação. */
   setPose(position: Vec3, orientation: Quat): void {
     this.dice.position.set(position[0], REST_HEIGHT + position[1], position[2]);
@@ -115,6 +137,11 @@ export class DiceScene {
   spin(dtMs: number): void {
     const axis = new THREE.Vector3(0.35, 1, 0.15).normalize();
     this.dice.rotateOnWorldAxis(axis, dtMs * 0.0011);
+  }
+
+  /** Posição atual do dado no plano da mesa [x, z]. */
+  get position2D(): readonly [number, number] {
+    return [this.dice.position.x, this.dice.position.z];
   }
 
   /** Orientação atual do dado, no formato do núcleo. */

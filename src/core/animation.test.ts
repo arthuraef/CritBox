@@ -121,6 +121,25 @@ describe('planRoll', () => {
     }
     assert.deepEqual([...finals], [6]);
   });
+
+  it('quando configurado com bounds, o dado se desloca e permanece dentro das margens', () => {
+    const bounds = { minX: -2.5, maxX: 2.5, minZ: -4.0, maxZ: 4.0 };
+    for (let seed = 1; seed <= 20; seed++) {
+      const plan = planRoll({
+        start,
+        target: orientationForFace(20),
+        random: visualRandom(seed * 7),
+        bounds,
+        startPosition: [0, 0],
+      });
+      for (let t = 0; t <= plan.durationMs; t += 20) {
+        const [x, , z] = plan.pose(t).position;
+        assert.ok(x >= bounds.minX - 1e-6 && x <= bounds.maxX + 1e-6, `X fora dos limites: ${x}`);
+        assert.ok(z >= bounds.minZ - 1e-6 && z <= bounds.maxZ + 1e-6, `Z fora dos limites: ${z}`);
+      }
+      assert.equal(faceUp(plan.pose(plan.durationMs).orientation), 20);
+    }
+  });
 });
 
 describe('fluxo completo (passos 1 a 7 do documento, sem renderização)', () => {

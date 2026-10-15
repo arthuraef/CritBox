@@ -18,6 +18,13 @@ import {
   type Vec3,
 } from './d20.ts';
 
+export interface PlayfieldBounds {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minZ: number;
+  readonly maxZ: number;
+}
+
 export interface RollPlanInput {
   /** Orientação do dado no início do lançamento. */
   readonly start: Quat;
@@ -27,6 +34,10 @@ export interface RollPlanInput {
   readonly random: () => number;
   /** Altura do primeiro arco, em raios do dado. Padrão 1,6. */
   readonly throwHeight?: number;
+  /** Limites da tela para colisão nas margens (opcional). */
+  readonly bounds?: PlayfieldBounds;
+  /** Posição inicial do dado em repouso (opcional). */
+  readonly startPosition?: readonly [number, number];
 }
 
 export interface DicePose {
@@ -39,7 +50,7 @@ export interface DicePose {
 
 export interface RollPlan {
   readonly durationMs: number;
-  /** Instantes (ms) em que o dado toca a mesa, em ordem crescente. Útil para o som. */
+  /** Instantes (ms) em que o dado toca a mesa ou parede, em ordem crescente. Útil para o som. */
   readonly impactsMs: readonly number[];
   /** Instante (ms) em que cessa o último quique e começa o repouso. */
   readonly settleStartMs: number;
@@ -57,8 +68,20 @@ function easeOutCubic(u: number): number {
   return 1 - inv * inv * inv;
 }
 
+/** Reflete uma coordenada dentro de [min, max] como colisão elástica com as bordas. */
+export function bounceCoordinate(val: number, min: number, max: number): number {
+  const span = max - min;
+  if (span <= 1e-6) return min;
+  let offset = (val - min) % (2 * span);
+  if (offset < 0) offset += 2 * span;
+  if (offset > span) {
+    return max - (offset - span);
+  }
+  return min + offset;
+}
+
 export function planRoll(input: RollPlanInput): RollPlan {
-  const { start, target, random } = input;
+  const { start, target, random, bounds } = input;
   const firstHeight = input.throwHeight ?? 1.6;
 
   // Arcos de quique com altura e duração decrescentes.
@@ -81,10 +104,15 @@ export function planRoll(input: RollPlanInput): RollPlan {
     Math.hypot(axisRaw[0], axisRaw[1], axisRaw[2]) < 1e-6 ? [1, 0, 0] : axisRaw;
   const spinTurns = 3 + random() * 2; // 3 a 5 voltas, decaindo a zero
   const spinAngle = spinTurns * 2 * Math.PI * (random() < 0.5 ? -1 : 1);
-  const driftAngle = random() * 2 * Math.PI;
-  const driftRadius = 0.5 + random() * 0.5;
-  const driftX = Math.cos(driftAngle) * driftRadius;
-  const driftZ = Math.sin(driftAngle) * driftRadius;
+
+  // Movimento de translação pela tela com velocidade e ricochete nas margens
+  const travelAngle = random() * 2 * Math.PI;
+  // Distância total percorrida pelo impulso do lançamento
+  const travelSpeed = bounds ? (bounds.maxX - bounds.minX) * (1.8 + random() * 1.4) : (1.0 + random() * 0.8);
+  const velX = Math.cos(travelAngle) * travelSpeed;
+  const velZ = Math.sin(travelAngle) * travelSpeed;
+  const initX = input.startPosition ? input.startPosition[0] : 0;
+  const initZ = input.startPosition ? input.startPosition[1] : 0;
 
   function heightAt(tMs: number): number {
     for (const arc of arcs) {
@@ -95,6 +123,23 @@ export function planRoll(input: RollPlanInput): RollPlan {
     }
     return 0; // repouso
   }
+
+  function positionAt(tMs: number): [number, number] {
+    const progress = easeOutCubic(Math.min(Math.max(tMs, 0), durationMs) / durationMs);
+    const rawX = initX + velX * progress;
+    const rawZ = initZ + velZ * progress;
+    if (!bounds) {
+      const drift = 1 - easeOutCubic(Math.min((tMs / durationMs) * 1.15, 1));
+      const px = rawX * drift;
+      const pz = rawZ * drift;
+      return [Object.is(px, -0) || Math.abs(px) < 1e-12 ? 0 : px, Object.is(pz, -0) || Math.abs(pz) < 1e-12 ? 0 : pz];
+    }
+    const bx = bounceCoordinate(rawX, bounds.minX, bounds.maxX);
+    const bz = bounceCoordinate(rawZ, bounds.minZ, bounds.maxZ);
+    return [bx, bz];
+  }
+
+  const finalPos = !bounds ? [0, 0] as const : positionAt(durationMs);
 
   return {
     durationMs,
@@ -110,9 +155,9 @@ export function planRoll(input: RollPlanInput): RollPlan {
       const spin = quatFromAxisAngle(axis, spinAngle * (1 - e));
       const orientation = done ? target : quatNormalize(quatMultiply(spin, base));
 
-      const drift = 1 - easeOutCubic(Math.min(u * 1.15, 1)); // chega ao centro um pouco antes
+      const [px, pz] = done ? finalPos : positionAt(t);
       return {
-        position: done ? [0, 0, 0] : [driftX * drift, heightAt(t), driftZ * drift],
+        position: [px, heightAt(t), pz],
         orientation,
         done,
       };
