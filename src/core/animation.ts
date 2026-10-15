@@ -107,8 +107,8 @@ export function planRoll(input: RollPlanInput): RollPlan {
 
   // Movimento de translação pela tela com velocidade e ricochete nas margens
   const travelAngle = random() * 2 * Math.PI;
-  // Distância total percorrida pelo impulso do lançamento
-  const travelSpeed = bounds ? (bounds.maxX - bounds.minX) * (1.8 + random() * 1.4) : (1.0 + random() * 0.8);
+  // Distância e velocidade do lançamento pelo tabuleiro
+  const travelSpeed = bounds ? (bounds.maxX - bounds.minX) * (2.0 + random() * 1.5) : (1.0 + random() * 0.8);
   const velX = Math.cos(travelAngle) * travelSpeed;
   const velZ = Math.sin(travelAngle) * travelSpeed;
   const initX = input.startPosition ? input.startPosition[0] : 0;
@@ -125,21 +125,32 @@ export function planRoll(input: RollPlanInput): RollPlan {
   }
 
   function positionAt(tMs: number): [number, number] {
-    const progress = easeOutCubic(Math.min(Math.max(tMs, 0), durationMs) / durationMs);
-    const rawX = initX + velX * progress;
-    const rawZ = initZ + velZ * progress;
+    const u = Math.min(Math.max(tMs, 0), durationMs) / durationMs;
+    // O dado viaja e ricocheteia pelas margens no início e meio da rolagem,
+    // e nos últimos arcos de quique converge precisamente para o centro [0, 0].
+    const progress = easeOutCubic(u);
+    // envelope de atração ao centro: 1 no início/meio, decaindo a 0 no final
+    const centerWeight = Math.pow(1 - u, 1.4);
+
+    const rawX = initX * (1 - progress) + velX * progress;
+    const rawZ = initZ * (1 - progress) + velZ * progress;
+
     if (!bounds) {
-      const drift = 1 - easeOutCubic(Math.min((tMs / durationMs) * 1.15, 1));
-      const px = rawX * drift;
-      const pz = rawZ * drift;
+      const px = rawX * centerWeight;
+      const pz = rawZ * centerWeight;
       return [Object.is(px, -0) || Math.abs(px) < 1e-12 ? 0 : px, Object.is(pz, -0) || Math.abs(pz) < 1e-12 ? 0 : pz];
     }
+
     const bx = bounceCoordinate(rawX, bounds.minX, bounds.maxX);
     const bz = bounceCoordinate(rawZ, bounds.minZ, bounds.maxZ);
-    return [bx, bz];
+
+    // Na fase final de acomodação (quiques baixos), o dado vai ao centro da tela
+    const px = bx * centerWeight;
+    const pz = bz * centerWeight;
+    return [Object.is(px, -0) || Math.abs(px) < 1e-12 ? 0 : px, Object.is(pz, -0) || Math.abs(pz) < 1e-12 ? 0 : pz];
   }
 
-  const finalPos = !bounds ? [0, 0] as const : positionAt(durationMs);
+  const finalPos: [number, number] = [0, 0];
 
   return {
     durationMs,

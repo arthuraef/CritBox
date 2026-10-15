@@ -122,7 +122,7 @@ describe('planRoll', () => {
     assert.deepEqual([...finals], [6]);
   });
 
-  it('quando configurado com bounds, o dado se desloca e permanece dentro das margens', () => {
+  it('quando configurado com bounds, o dado se desloca pelas margens e termina exatamente no centro [0, 0]', () => {
     const bounds = { minX: -2.5, maxX: 2.5, minZ: -4.0, maxZ: 4.0 };
     for (let seed = 1; seed <= 20; seed++) {
       const plan = planRoll({
@@ -132,12 +132,19 @@ describe('planRoll', () => {
         bounds,
         startPosition: [0, 0],
       });
+      let moved = false;
       for (let t = 0; t <= plan.durationMs; t += 20) {
         const [x, , z] = plan.pose(t).position;
         assert.ok(x >= bounds.minX - 1e-6 && x <= bounds.maxX + 1e-6, `X fora dos limites: ${x}`);
         assert.ok(z >= bounds.minZ - 1e-6 && z <= bounds.maxZ + 1e-6, `Z fora dos limites: ${z}`);
+        if (Math.hypot(x, z) > 0.1) {
+          moved = true;
+        }
       }
-      assert.equal(faceUp(plan.pose(plan.durationMs).orientation), 20);
+      assert.ok(moved, 'dado deve se mover pela tela durante a rolagem');
+      const endPose = plan.pose(plan.durationMs);
+      assert.deepEqual([...endPose.position], [0, 0, 0], 'deve finalizar no centro da tela');
+      assert.equal(faceUp(endPose.orientation), 20);
     }
   });
 });
