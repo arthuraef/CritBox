@@ -1,3 +1,5 @@
+import type { PolyhedralDie } from './polyhedral.ts';
+
 /**
  * Quando e como tocar som e vibração durante uma rolagem.
  *
@@ -37,10 +39,12 @@ export function planFeedback(timing: FeedbackTiming): FeedbackEvent[] {
   return events.sort((a, b) => a.atMs - b.atMs);
 }
 
-/** Efeito especial do resultado já confirmado: 20 vitória, 1 derrota, demais nenhum. */
-export function specialFor(result: number): 'crit' | 'fumble' | null {
-  if (result === 20) return 'crit';
-  if (result === 1) return 'fumble';
+/** Efeito especial do resultado já confirmado: face máxima vitória, face mínima derrota, demais nenhum. */
+export function specialFor(result: number, die?: PolyhedralDie): 'crit' | 'fumble' | null {
+  const max = die ? die.maxValue : 20;
+  const min = die ? die.minValue : 1;
+  if (result === max) return 'crit';
+  if (result === min) return 'fumble';
   return null;
 }
 

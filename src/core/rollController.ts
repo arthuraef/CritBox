@@ -1,4 +1,5 @@
-import { rollD20, type RandomSource } from './random.ts';
+import { rollD20, uniformInt, type RandomSource } from './random.ts';
+import type { PolyhedralDie } from './polyhedral.ts';
 
 export type RollState = 'idle' | 'rolling';
 
@@ -64,13 +65,16 @@ export class RollController {
    * Inicia uma rolagem. Devolve `null` se já houver uma em andamento,
    * sem sortear nada nesse caso.
    */
-  trigger(): RollTicket | null {
+  trigger(die?: PolyhedralDie): RollTicket | null {
     if (this.current !== null) {
       return null;
     }
+    const result = die
+      ? die.faces[uniformInt(this.deps.source, 0, die.faces.length - 1)].value
+      : rollD20(this.deps.source);
     const ticket: RollTicket = {
       id: this.deps.newId(),
-      result: rollD20(this.deps.source),
+      result,
     };
     this.current = ticket;
     return ticket;

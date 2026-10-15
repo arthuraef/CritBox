@@ -49,4 +49,38 @@ describe('atlas de texturas do D20', () => {
       assert.ok(v0 > cv, `face ${face.value}: labelUp não aponta para cima no atlas`);
     }
   });
+
+  it('todos os dados poliédricos (D4, D6, D8, D10, D12, D20, D100) mapeiam UVs válidas sem vazar', async () => {
+    const { DICE_REGISTRY } = await import('../core/polyhedral.ts');
+    const { getDieGrid, dieCellCenter, polyhedralFaceUVs } = await import('./atlas.ts');
+
+    for (const [id, die] of Object.entries(DICE_REGISTRY)) {
+      const { cols, rows } = getDieGrid(die);
+      assert.ok(cols * rows >= die.facesCount, `${id}: grid insuficiente`);
+
+      die.faces.forEach((face, idx) => {
+        const [cu, cv] = dieCellCenter(idx, cols, rows);
+        const uvs = polyhedralFaceUVs(die, face, idx, cols, rows);
+        assert.equal(uvs.length, face.vertices.length);
+
+        for (const [u, v] of uvs) {
+          assert.ok(Math.abs(u - cu) < 0.5 / cols, `${id} face ${face.value}: u vaza da célula`);
+          assert.ok(Math.abs(v - cv) < 0.5 / rows, `${id} face ${face.value}: v vaza da célula`);
+        }
+
+        // Subtriângulos gerados pelo leque (fan) têm área positiva
+        for (let m = 1; m < uvs.length - 1; m++) {
+          const a = uvs[0];
+          const b = uvs[m];
+          const c = uvs[m + 1];
+          const area =
+            ((b[0] - a[0]) * rows * (c[1] - a[1]) * cols -
+              (c[0] - a[0]) * rows * (b[1] - a[1]) * cols) /
+            2;
+          assert.ok(area > 1e-4, `${id} face ${face.value} sub-triângulo ${m}: área inválida`);
+        }
+      });
+    }
+  });
 });
+

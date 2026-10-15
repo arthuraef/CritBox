@@ -1,5 +1,5 @@
 import { createCryptoSource, createVisualRandom } from './core/random.ts';
-import { faceUp, orientationForFace, uprightYaw } from './core/d20.ts';
+import { DICE_REGISTRY, type PolyhedralDie } from './core/polyhedral.ts';
 import { planRoll, type RollPlan } from './core/animation.ts';
 import { FaceMismatchError, RollController, type RollTicket } from './core/rollController.ts';
 import { DiceScene } from './render/diceScene.ts';
@@ -37,6 +37,7 @@ const controller = new RollController({
   newId: () => crypto.randomUUID(),
 });
 const scene = new DiceScene(stage);
+let currentDie: PolyhedralDie = DICE_REGISTRY.d20;
 
 /** localStorage pode não existir ou lançar erro (modo privado): nesse caso fica só em memória. */
 function openStorage(): KeyValueStorage | null {
@@ -76,7 +77,14 @@ setupHistoryView(history, () => {
   // Ao limpar o histórico, nada no palco precisa ser resetado
 });
 setupChangelogView();
-setupDiceSelector();
+setupDiceSelector((diceType) => {
+  const chosen = DICE_REGISTRY[diceType];
+  if (chosen) {
+    currentDie = chosen;
+    scene.setDie(chosen);
+    requestRender();
+  }
+});
 setupSkinsView(
   skins,
   adProvider,
@@ -100,7 +108,8 @@ void Promise.all([
   document.fonts?.ready ?? Promise.resolve(),
 ]).then(() => {
   // Ao carregar, nenhum resultado deve ser exibido. O dado repousa neutro no centro.
-  scene.setPose([0, 0, 0], orientationForFace(20, uprightYaw(20)));
+  const initQ = currentDie.orientationForFace(currentDie.maxValue, currentDie.uprightYaw(currentDie.maxValue));
+  scene.setPose([0, 0, 0], initQ);
   scene.highlightResult(null);
   splashing = false;
   appEl.classList.remove('splashing');
@@ -126,7 +135,7 @@ function setRolling(rolling: boolean): void {
 
 /** Inicia uma rolagem: toque no dado, clique ou arrastar e soltar. */
 function startRoll(): void {
-  const ticket = controller.trigger(); // sorteia aqui, antes da animação
+  const ticket = controller.trigger(currentDie); // sorteia aqui, antes da animação
   if (ticket === null) {
     return; // já rolando: ignora
   }
@@ -136,7 +145,7 @@ function startRoll(): void {
   const bounds = scene.getPlayfieldBounds();
   const plan = planRoll({
     start: scene.orientation,
-    target: orientationForFace(ticket.result, uprightYaw(ticket.result)),
+    target: currentDie.orientationForFace(ticket.result, currentDie.uprightYaw(ticket.result)),
     random: visualRandom,
     throwHeight: 0.7,
     bounds,
@@ -152,19 +161,19 @@ function startRoll(): void {
 function finishRoll(roll: ActiveRoll): void {
   active = null;
   try {
-    const record = controller.complete(roll.ticket.id, faceUp(scene.orientation));
+    const record = controller.complete(roll.ticket.id, currentDie.faceUp(scene.orientation));
     if (record !== null) {
       history.add(record);
       // Destaque luminoso do número sorteado diretamente na face do dado
       scene.highlightResult(record.result);
 
-      // Banners e efeitos especiais para 20 (Sucesso Crítico) e 1 (Falha Crítica) estilo Baldur's Gate 3
+      // Banners e efeitos especiais para sucesso crítico e falha crítica estilo Baldur's Gate 3
       if (critBanner && critBannerText) {
-        if (record.result === 20) {
+        if (record.result === currentDie.maxValue) {
           critBanner.className = 'crit-banner success';
           critBannerText.textContent = 'CRITICAL SUCCESS';
           critBanner.hidden = false;
-        } else if (record.result === 1) {
+        } else if (record.result === currentDie.minValue) {
           critBanner.className = 'crit-banner failure';
           critBannerText.textContent = 'CRITICAL FAILURE';
           critBanner.hidden = false;
@@ -173,7 +182,7 @@ function finishRoll(roll: ActiveRoll): void {
         }
       }
 
-      const special = specialFor(record.result);
+      const special = specialFor(record.result, currentDie);
       if (special !== null) {
         emit(special);
       }

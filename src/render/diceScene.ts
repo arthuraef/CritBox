@@ -6,13 +6,19 @@
 
 import * as THREE from 'three';
 import { D20, dot, type Quat, type Vec3 } from '../core/d20.ts';
-import { ATLAS_COLS, ATLAS_ROWS, faceUVs } from './atlas.ts';
+import { D20Polyhedral, type PolyhedralDie } from '../core/polyhedral.ts';
+import { getDieGrid, polyhedralFaceUVs } from './atlas.ts';
 import { RollVFX } from './vfx.ts';
 import { SKINS_CATALOG, type DiceSkin } from '../core/skins.ts';
 
 export const DICE_SCALE = 0.8;
 
-/** Altura do centro do dado quando uma face está apoiada na mesa (raio do inscrito). */
+/** Altura do centro do dado quando uma face está apoiada na mesa (raio do círculo inscrito * escala). */
+export function computeRestHeight(die: PolyhedralDie, scale = DICE_SCALE): number {
+  return Math.abs(dot(die.faces[0].normal, die.faces[0].centroid)) * scale;
+}
+
+/** Altura padrão do D20 para compatibilidade retroativa. */
 export const REST_HEIGHT = dot(D20.faces[0].normal, D20.faces[0].centroid) * DICE_SCALE;
 
 const CELL_PX = 512; // Alta resolução para números nítidos e gravados com precisão
@@ -94,17 +100,26 @@ function createIvoryEnvMap(): THREE.CanvasTexture {
 
 /**
  * Desenha o atlas com numeração de alta resolução gravada no material da skin.
- * Quando `highlightedNumber` for informado, a face correspondente recebe destaque luminoso.
- * Em 20 (Sucesso Crítico) emite brilho dourado e em 1 (Falha Crítica) emite rubi carmesim (estilo Baldur's Gate 3).
+ * Funciona para qualquer dado poliédrico (D4, D6, D8, D10, D12, D20, D100).
+ * Quando `highlightedValue` for informado, a face correspondente recebe destaque luminoso.
  */
-function drawNumberAtlas(
+export function drawDieAtlas(
   canvas: HTMLCanvasElement,
-  highlightedNumber: number | null = null,
+  die: PolyhedralDie = D20Polyhedral,
+  highlightedValue: number | null = null,
   skin: DiceSkin = SKINS_CATALOG[0],
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     throw new Error('Canvas 2D indisponível.');
+  }
+
+  const { cols, rows } = getDieGrid(die);
+  const targetW = cols * CELL_PX;
+  const targetH = rows * CELL_PX;
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW;
+    canvas.height = targetH;
   }
 
   // Cor base do material da skin
@@ -113,21 +128,25 @@ function drawNumberAtlas(
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `bold ${Math.round(CELL_PX * 0.32)}px "Cinzel", "Palatino Linotype", "Book Antiqua", "Georgia", serif`;
 
-  for (let value = 1; value <= 20; value++) {
-    const col = (value - 1) % ATLAS_COLS;
-    const row = Math.floor((value - 1) / ATLAS_COLS);
+  die.faces.forEach((face, faceIndex) => {
+    const col = faceIndex % cols;
+    const row = Math.floor(faceIndex / cols);
     const cx = col * CELL_PX + CELL_PX / 2;
     const cy = row * CELL_PX + CELL_PX / 2;
 
-    const isHighlighted = value === highlightedNumber;
+    const value = face.value;
+    const isHighlighted = value === highlightedValue;
+    const isCrit = value === die.maxValue;
+    const isFumble = value === die.minValue;
+    const label = face.displayLabel;
+
+    // Tamanho adaptativo da fonte para números simples ou dezenas percentuais (ex: D100 "00".."90")
+    const fontScale = label.length > 2 ? 0.22 : (label.length === 2 ? 0.28 : 0.32);
+    ctx.font = `bold ${Math.round(CELL_PX * fontScale)}px "Cinzel", "Palatino Linotype", "Book Antiqua", "Georgia", serif`;
 
     if (isHighlighted) {
-      const isCrit = value === 20;
-      const isFumble = value === 1;
-
-      // Halo radial: dourado radiante para 20, carmesim vívido para 1, ouro suave para os demais
+      // Halo radial: dourado radiante para sucesso crítico, carmesim para falha crítica, âmbar suave para demais
       const glow = ctx.createRadialGradient(cx, cy, CELL_PX * 0.05, cx, cy, CELL_PX * 0.44);
       if (isFumble) {
         glow.addColorStop(0, 'rgba(255, 60, 80, 0.95)');
@@ -146,7 +165,9 @@ function drawNumberAtlas(
       ctx.fill();
 
       // Círculo fino envolvente
-      ctx.strokeStyle = isFumble ? 'rgba(255, 80, 100, 0.9)' : (isCrit ? 'rgba(255, 220, 100, 0.95)' : skin.material.highlightStroke);
+      ctx.strokeStyle = isFumble
+        ? 'rgba(255, 80, 100, 0.9)'
+        : (isCrit ? 'rgba(255, 220, 100, 0.95)' : skin.material.highlightStroke);
       ctx.lineWidth = CELL_PX * 0.015;
       ctx.beginPath();
       ctx.arc(cx, cy, CELL_PX * 0.34, 0, Math.PI * 2);
@@ -156,33 +177,33 @@ function drawNumberAtlas(
       ctx.shadowColor = isFumble ? 'rgba(255, 50, 70, 0.95)' : 'rgba(255, 215, 50, 0.95)';
       ctx.shadowBlur = 18;
       ctx.fillStyle = isFumble ? '#ffedf0' : skin.material.highlightColor;
-      ctx.fillText(String(value), cx, cy);
+      ctx.fillText(label, cx, cy);
 
       ctx.strokeStyle = isFumble ? '#c41829' : skin.material.highlightStroke;
       ctx.lineWidth = CELL_PX * 0.02;
-      ctx.strokeText(String(value), cx, cy);
+      ctx.strokeText(label, cx, cy);
       ctx.shadowBlur = 0;
     } else {
       // Número gravado no material
       const isDarkSkin = skin.id !== 'ivory';
       if (isDarkSkin) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillText(String(value), cx + 1.5, cy + 1.5);
+        ctx.fillText(label, cx + 1.5, cy + 1.5);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-        ctx.fillText(String(value), cx - 1.5, cy - 1.5);
+        ctx.fillText(label, cx - 1.5, cy - 1.5);
       } else {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-        ctx.fillText(String(value), cx - 1.5, cy - 1.5);
+        ctx.fillText(label, cx - 1.5, cy - 1.5);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-        ctx.fillText(String(value), cx + 1.5, cy + 1.5);
+        ctx.fillText(label, cx + 1.5, cy + 1.5);
       }
 
       ctx.fillStyle = skin.material.numberColor;
-      ctx.fillText(String(value), cx, cy);
+      ctx.fillText(label, cx, cy);
     }
 
-    if (value === 6 || value === 9) {
-      const w = ctx.measureText(String(value)).width * 0.9;
+    if (label === '6' || label === '9') {
+      const w = ctx.measureText(label).width * 0.9;
       const uy = cy + CELL_PX * 0.22;
       const uh = CELL_PX * 0.028;
       if (isHighlighted) {
@@ -195,23 +216,35 @@ function drawNumberAtlas(
         ctx.fillRect(cx - w / 2, uy, w, uh);
       }
     }
-  }
+  });
 }
 
-function buildGeometry(): THREE.BufferGeometry {
+/**
+ * Constrói a geometria 3D (malha de triângulos planos) para qualquer poliedro de RPG.
+ * Faces poligonais (quadriláteros no D6/D10/D100, pentágonos no D12) são trianguladas
+ * em leque convexo com normais planas estritas e UVs correspondentes.
+ */
+export function buildDieGeometry(die: PolyhedralDie): THREE.BufferGeometry {
+  const { cols, rows } = getDieGrid(die);
   const positions: number[] = [];
   const uvs: number[] = [];
-  for (const face of D20.faces) {
-    const faceUv = faceUVs(face);
-    face.vertices.forEach((vi, k) => {
-      positions.push(...D20.vertices[vi]);
-      uvs.push(faceUv[k][0], faceUv[k][1]);
-    });
-  }
+
+  die.faces.forEach((face, faceIndex) => {
+    const faceUv = polyhedralFaceUVs(die, face, faceIndex, cols, rows);
+    const k = face.vertices.length;
+    for (let m = 1; m < k - 1; m++) {
+      const idxs = [0, m, m + 1];
+      for (const idx of idxs) {
+        positions.push(...die.vertices[face.vertices[idx]]);
+        uvs.push(faceUv[idx][0], faceUv[idx][1]);
+      }
+    }
+  });
+
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.computeVertexNormals(); // normal plana por face
+  geometry.computeVertexNormals();
   return geometry;
 }
 
@@ -230,6 +263,7 @@ export class DiceScene {
   private readonly envTexture: THREE.CanvasTexture;
   private readonly tableMesh: THREE.Mesh;
 
+  private currentDie: PolyhedralDie = D20Polyhedral;
   private currentScaleFactor = 1.0;
   private currentSkin: DiceSkin = SKINS_CATALOG[0];
   private highlightedValue: number | null = null;
@@ -258,11 +292,12 @@ export class DiceScene {
     this.envTexture = createIvoryEnvMap();
     this.scene.environment = this.envTexture;
 
-    // 3. Atlas de numeração em alta resolução com acabamento em marfim entalhado
+    // 3. Atlas de numeração em alta resolução gravado no material
+    const { cols, rows } = getDieGrid(this.currentDie);
     this.atlasCanvas = document.createElement('canvas');
-    this.atlasCanvas.width = ATLAS_COLS * CELL_PX;
-    this.atlasCanvas.height = ATLAS_ROWS * CELL_PX;
-    drawNumberAtlas(this.atlasCanvas, null);
+    this.atlasCanvas.width = cols * CELL_PX;
+    this.atlasCanvas.height = rows * CELL_PX;
+    drawDieAtlas(this.atlasCanvas, this.currentDie, null, this.currentSkin);
 
     this.atlasTexture = new THREE.CanvasTexture(this.atlasCanvas);
     this.atlasTexture.colorSpace = THREE.SRGBColorSpace;
@@ -282,9 +317,11 @@ export class DiceScene {
       reflectivity: 0.5,
     });
 
-    this.dice = new THREE.Mesh(buildGeometry(), this.material);
+    this.dice = new THREE.Mesh(buildDieGeometry(this.currentDie), this.material);
     this.dice.scale.set(DICE_SCALE, DICE_SCALE, DICE_SCALE);
-    this.dice.position.y = REST_HEIGHT;
+    this.dice.position.y = computeRestHeight(this.currentDie, DICE_SCALE);
+    const initQ = this.currentDie.orientationForFace(this.currentDie.maxValue, this.currentDie.uprightYaw(this.currentDie.maxValue));
+    this.dice.quaternion.set(initQ[0], initQ[1], initQ[2], initQ[3]);
     this.scene.add(this.dice);
 
     // 5. Esquema de Iluminação
@@ -319,6 +356,39 @@ export class DiceScene {
     new ResizeObserver(() => this.resize()).observe(container);
   }
 
+  /** Retorna o dado poliédrico ativo no momento. */
+  get die(): PolyhedralDie {
+    return this.currentDie;
+  }
+
+  /** Altura de repouso atual do dado na mesa. */
+  get restHeight(): number {
+    return computeRestHeight(this.currentDie, DICE_SCALE);
+  }
+
+  /**
+   * Substitui o dado na cena 3D por outro da família poliédrica (D4, D6, D8, D10, D12, D20, D100).
+   * Atualiza malha geométrica, atlas de texturas e pose neutra com a face máxima voltada para cima.
+   */
+  setDie(die: PolyhedralDie): void {
+    if (this.currentDie.id === die.id) return;
+    this.currentDie = die;
+    this.highlightedValue = null;
+
+    // 1. Atualiza malha geométrica
+    const oldGeo = this.dice.geometry;
+    this.dice.geometry = buildDieGeometry(die);
+    oldGeo.dispose();
+
+    // 2. Atualiza textura do atlas para as faces do novo dado
+    drawDieAtlas(this.atlasCanvas, this.currentDie, null, this.currentSkin);
+    this.atlasTexture.needsUpdate = true;
+
+    // 3. Atualiza orientação padrão mostrando a face máxima voltada para cima
+    const targetQ = die.orientationForFace(die.maxValue, die.uprightYaw(die.maxValue));
+    this.setPose([0, 0, 0], targetQ, 1.0);
+  }
+
   /** Aplica uma nova skin PBR e redesenha o atlas de texturas. */
   setSkin(skin: DiceSkin): void {
     this.currentSkin = skin;
@@ -327,14 +397,14 @@ export class DiceScene {
     this.material.metalness = skin.material.metalness;
     this.material.clearcoat = skin.material.clearcoat;
     this.material.clearcoatRoughness = skin.material.clearcoatRoughness;
-    drawNumberAtlas(this.atlasCanvas, this.highlightedValue, this.currentSkin);
+    drawDieAtlas(this.atlasCanvas, this.currentDie, this.highlightedValue, this.currentSkin);
     this.atlasTexture.needsUpdate = true;
   }
 
   /** Destaca o número sorteado diretamente na face do dado com brilho e cor adequados à skin. */
   highlightResult(result: number | null): void {
     this.highlightedValue = result;
-    drawNumberAtlas(this.atlasCanvas, result, this.currentSkin);
+    drawDieAtlas(this.atlasCanvas, this.currentDie, result, this.currentSkin);
     this.atlasTexture.needsUpdate = true;
   }
 
@@ -387,7 +457,7 @@ export class DiceScene {
     const s = DICE_SCALE * scaleFactor;
     this.dice.scale.set(s, s, s);
 
-    const restH = REST_HEIGHT * scaleFactor;
+    const restH = computeRestHeight(this.currentDie, DICE_SCALE) * scaleFactor;
     this.dice.position.set(position[0], restH + position[1], position[2]);
     this.dice.quaternion.set(orientation[0], orientation[1], orientation[2], orientation[3]);
   }

@@ -1,6 +1,6 @@
 {
   "name": "critbox",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "CritBox MVP (Bioma Labs): D20 3D em web app e mobile nativo",

@@ -14,22 +14,20 @@ export function setupDiceSelector(onSelect?: (diceType: string) => void): void {
     btn.addEventListener('click', () => {
       const type = btn.dataset.dice ?? 'd20';
 
-      buttons.forEach((b) => b.classList.remove('active'));
-      // No MVP atual, o D20 é o dado renderizado
-      const d20Btn = container.querySelector<HTMLButtonElement>('[data-dice="d20"]');
-      if (d20Btn) d20Btn.classList.add('active');
+      buttons.forEach((b) => {
+        b.classList.remove('active');
+        b.removeAttribute('aria-current');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-current', 'true');
 
-      if (type === 'd20') {
-        if (statusEl) statusEl.textContent = '';
-      } else {
-        if (statusEl) {
-          statusEl.textContent = `Dado ${type.toUpperCase()}: em breve! O D20 está pronto para jogar.`;
-          setTimeout(() => {
-            if (statusEl.textContent.includes(type.toUpperCase())) {
-              statusEl.textContent = '';
-            }
-          }, 3200);
-        }
+      if (statusEl) {
+        statusEl.textContent = `Dado ${type.toUpperCase()} pronto na mesa! Toque para rolar.`;
+        setTimeout(() => {
+          if (statusEl.textContent.includes(type.toUpperCase())) {
+            statusEl.textContent = '';
+          }
+        }, 2400);
       }
 
       if (onSelect) onSelect(type);
