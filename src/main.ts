@@ -117,6 +117,7 @@ function startRoll(): void {
   resultEl.classList.remove('crit', 'fumble');
   setRolling(true);
   statusEl.textContent = '';
+  scene.onRollStart();
 }
 
 function finishRoll(roll: ActiveRoll): void {
@@ -164,15 +165,24 @@ function frame(now: number): void {
     scene.setPose(pose.position, pose.orientation);
     for (const ev of active.cursor.due(now - active.startedAt)) {
       emit(ev.kind, ev.strength);
+      if (ev.kind === 'impact') {
+        scene.onImpact(pose.position, ev.strength);
+      } else if (ev.kind === 'settle') {
+        scene.onSettle();
+      }
     }
+    scene.updateVFX(dt, pose.position, true);
     needsRender = true;
     if (pose.done) {
       finishRoll(active);
     }
+  } else if (scene.hasActiveVFX()) {
+    scene.updateVFX(dt, [0, 0, 0], false);
+    needsRender = true;
   }
   if (needsRender) {
     scene.render();
-    if (!splashing && active === null) {
+    if (!splashing && active === null && !scene.hasActiveVFX()) {
       needsRender = false;
     }
   }

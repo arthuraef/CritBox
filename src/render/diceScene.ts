@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { D20, dot, type Quat, type Vec3 } from '../core/d20.ts';
 import { ATLAS_COLS, ATLAS_ROWS, faceUVs } from './atlas.ts';
+import { RollVFX } from './vfx.ts';
 
 export const DICE_SCALE = 0.8;
 
@@ -71,6 +72,7 @@ export class DiceScene {
   private readonly camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
   private readonly raycaster = new THREE.Raycaster();
   private readonly material: THREE.MeshStandardMaterial;
+  private readonly vfx: RollVFX;
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -104,8 +106,35 @@ export class DiceScene {
     this.camera.position.set(0, 6.5, 0);
     this.camera.lookAt(0, 0, 0);
 
+    this.vfx = new RollVFX(this.scene);
+
     this.resize();
     new ResizeObserver(() => this.resize()).observe(container);
+  }
+
+  /** Início de rolagem: aciona transição da aura central. */
+  onRollStart(): void {
+    this.vfx.onRollStart();
+  }
+
+  /** Impacto com a margem ou mesa: flash de luz, onda de choque e faíscas. */
+  onImpact(pos: Vec3, strength = 1): void {
+    this.vfx.onImpact(pos, strength);
+  }
+
+  /** Repouso final no centro: pulso dourado intenso da aura rúnica. */
+  onSettle(): void {
+    this.vfx.onSettle();
+  }
+
+  /** Atualiza partículas, luzes e animações de VFX a cada quadro. */
+  updateVFX(dtMs: number, dicePos: Vec3, isRolling: boolean): void {
+    this.vfx.update(dtMs, dicePos, isRolling);
+  }
+
+  /** Retorna verdadeiro se ainda há efeitos ativos precisando de renderização. */
+  hasActiveVFX(): boolean {
+    return this.vfx.hasActiveEffects();
   }
 
   /**
@@ -180,6 +209,7 @@ export class DiceScene {
   }
 
   dispose(): void {
+    this.vfx.dispose();
     this.dice.geometry.dispose();
     if (this.material.map) this.material.map.dispose();
     this.material.dispose();
