@@ -6,6 +6,7 @@
   "description": "CritBox MVP (Bioma Labs): D20 3D em web app",
   "scripts": {
     "test": "node --test src/core/*.test.ts src/render/*.test.ts",
+    "test:coverage": "node --experimental-test-coverage --test src/core/*.test.ts src/render/*.test.ts",
     "typecheck": "tsc --noEmit",
     "dev": "vite",
     "build": "tsc --noEmit && vite build"

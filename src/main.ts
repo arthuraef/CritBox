@@ -136,12 +136,19 @@ function finishRoll(roll: ActiveRoll): void {
   }
 }
 
+let needsRender = true;
+function requestRender(): void {
+  needsRender = true;
+}
+scene.setOnResize(requestRender);
+
 let lastFrame = performance.now();
 function frame(now: number): void {
   const dt = Math.min(now - lastFrame, 100);
   lastFrame = now;
   if (splashing) {
     scene.spin(dt);
+    needsRender = true;
   }
   if (active !== null) {
     const pose = active.plan.pose(now - active.startedAt);
@@ -149,11 +156,17 @@ function frame(now: number): void {
     for (const ev of active.cursor.due(now - active.startedAt)) {
       emit(ev.kind, ev.strength);
     }
+    needsRender = true;
     if (pose.done) {
       finishRoll(active);
     }
   }
-  scene.render();
+  if (needsRender) {
+    scene.render();
+    if (!splashing && active === null) {
+      needsRender = false;
+    }
+  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -179,6 +192,7 @@ stage.addEventListener('pointermove', (e) => {
   pointer.moved += Math.hypot(dx, dy);
   if (pointer.onDice && pointer.moved > DRAG_THRESHOLD_PX) {
     scene.nudge(dx, dy); // só retorno visual
+    requestRender();
   }
 });
 

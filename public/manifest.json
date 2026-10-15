@@ -1,0 +1,25 @@
+{
+  "name": "CritBox",
+  "short_name": "CritBox",
+  "description": "Rolador de dados 3D imersivo para RPG de mesa",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#120e0b",
+  "theme_color": "#120e0b",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

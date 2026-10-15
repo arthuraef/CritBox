@@ -26,6 +26,7 @@ export function setupHistoryView(store: HistoryStore, onCleared: () => void): vo
   function render(): void {
     list.replaceChildren();
     const newestFirst = [...store.records].reverse();
+    const fragment = document.createDocumentFragment();
     for (const record of newestFirst) {
       const li = document.createElement('li');
       const when = document.createElement('span');
@@ -35,8 +36,9 @@ export function setupHistoryView(store: HistoryStore, onCleared: () => void): vo
       val.className = 'val' + (record.result === 20 ? ' crit' : record.result === 1 ? ' fumble' : '');
       val.textContent = String(record.result);
       li.append(when, val);
-      list.append(li);
+      fragment.append(li);
     }
+    list.append(fragment);
     const hasItems = newestFirst.length > 0;
     empty.hidden = hasItems;
     list.hidden = !hasItems;

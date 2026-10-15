@@ -146,6 +146,22 @@ export class DiceScene {
     this.renderer.render(this.scene, this.camera);
   }
 
+  private onResizeCallback?: () => void;
+
+  setOnResize(cb: () => void): void {
+    this.onResizeCallback = cb;
+  }
+
+  dispose(): void {
+    this.dice.geometry.dispose();
+    if (this.material.map) this.material.map.dispose();
+    this.material.dispose();
+    this.renderer.dispose();
+    if (this.renderer.domElement.parentElement) {
+      this.renderer.domElement.remove();
+    }
+  }
+
   private resize(): void {
     const w = Math.max(this.container.clientWidth, 1);
     const h = Math.max(this.container.clientHeight, 1);
@@ -157,5 +173,8 @@ export class DiceScene {
     this.camera.position.set(0, narrow ? 7.5 : 6.5, 0);
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
+    if (this.onResizeCallback) {
+      this.onResizeCallback();
+    }
   }
 }
