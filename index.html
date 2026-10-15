@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#120e0b" />
+    <title>CritBox</title>
+    <style>
+      :root {
+        --bg: #120e0b;
+        --panel: #1c150f;
+        --bronze: #b08d57;
+        --bronze-dim: #7a6240;
+        --bronze-hi: #d9b878;
+        --text: #e9dcc3;
+        --danger: #b5523b;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: radial-gradient(ellipse at 50% 40%, #241a12 0%, var(--bg) 70%);
+        color: var(--text);
+        font-family: Georgia, 'Times New Roman', serif;
+        overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      button { font: inherit; color: inherit; }
+      [hidden] { display: none !important; }
+
+      #app {
+        position: fixed;
+        inset: 0;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right)
+          env(safe-area-inset-bottom) env(safe-area-inset-left);
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ---- moldura em bronze envelhecido ---- */
+      #app::before {
+        content: '';
+        position: absolute;
+        inset: calc(env(safe-area-inset-top) + 6px) calc(env(safe-area-inset-right) + 6px)
+          calc(env(safe-area-inset-bottom) + 6px) calc(env(safe-area-inset-left) + 6px);
+        border: 1px solid var(--bronze-dim);
+        border-radius: 14px;
+        box-shadow: inset 0 0 0 4px rgba(176, 141, 87, 0.08), inset 0 0 40px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      header {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 112px;
+        padding: 16px 72px 8px;
+      }
+      #result-label {
+        position: absolute;
+        top: 18px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--bronze-dim);
+      }
+      #result {
+        margin-top: 14px;
+        font-size: clamp(52px, 15vw, 92px);
+        line-height: 1;
+        color: var(--bronze);
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+        font-variant-numeric: tabular-nums;
+        min-width: 2ch;
+        text-align: center;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+      #result.rolling { opacity: 0.35; transform: scale(0.9); }
+
+      .icon-btn {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(#3a2b1c, #231a11);
+        border: 1px solid var(--bronze);
+        border-radius: 12px;
+        cursor: pointer;
+        z-index: 2;
+      }
+      .icon-btn svg { width: 26px; height: 26px; stroke: var(--bronze-hi); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+      #stage { position: relative; flex: 1; min-height: 0; touch-action: none; }
+      #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      #status { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: var(--bronze-dim); font-size: 14px; padding: 0 24px; }
+
+      footer { display: flex; justify-content: center; padding: 12px 16px 24px; position: relative; z-index: 2; }
+      .btn {
+        font-size: 18px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: linear-gradient(#3a2b1c, #231a11);
+        border: 1px solid var(--bronze);
+        border-radius: 10px;
+        padding: 14px 40px;
+        min-height: 48px;
+        cursor: pointer;
+      }
+      .btn:disabled { opacity: 0.45; cursor: default; }
+      .btn.danger { border-color: var(--danger); color: #f0c9bd; }
+      .btn.plain { background: transparent; padding: 14px 24px; }
+      .btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 2px; }
+
+      #app.splashing header, #app.splashing footer { visibility: hidden; }
+      #app.splashing::before { display: none; }
+
+
+      .icon-btn.left { right: auto; left: 14px; }
+
+      /* ---- destaque dos resultados 20 e 1 (toca uma vez, discreto) ---- */
+      #result.crit { color: var(--bronze-hi); text-shadow: 0 0 22px rgba(217, 184, 120, 0.75), 0 2px 12px rgba(0, 0, 0, 0.8); animation: crit-pop 0.9s ease-out 1; }
+      #result.fumble { color: var(--danger); text-shadow: 0 0 18px rgba(181, 82, 59, 0.55), 0 2px 12px rgba(0, 0, 0, 0.8); animation: fumble-shake 0.55s ease-in-out 1; }
+      @keyframes crit-pop { 0% { transform: scale(0.9); } 40% { transform: scale(1.16); } 100% { transform: scale(1); } }
+      @keyframes fumble-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+      @media (prefers-reduced-motion: reduce) {
+        #result.crit, #result.fumble { animation: none; }
+      }
+
+      /* ---- configurações ---- */
+      .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid rgba(122, 98, 64, 0.25); }
+      .setting .name { font-size: 18px; }
+      .setting .hint { display: block; margin-top: 4px; font-size: 13px; color: var(--bronze-dim); }
+      .switch { flex: none; width: 58px; height: 34px; border-radius: 17px; border: 1px solid var(--bronze-dim); background: #2a2018; position: relative; cursor: pointer; padding: 0; }
+      .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: var(--bronze-dim); transition: transform 0.18s ease, background 0.18s ease; }
+      .switch[aria-checked='true'] { background: #4a361d; border-color: var(--bronze); }
+      .switch[aria-checked='true']::after { transform: translateX(24px); background: var(--bronze-hi); }
+      .switch:disabled { opacity: 0.4; cursor: default; }
+      .switch:focus-visible { outline: 2px solid var(--bronze-hi); outline-offset: 2px; }
+
+      /* ---- splash ---- */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: calc(env(safe-area-inset-top) + 12vh) 24px calc(env(safe-area-inset-bottom) + 8vh);
+        background: radial-gradient(ellipse at 50% 48%, transparent 0%, transparent 38%, rgba(18, 14, 11, 0.92) 100%);
+        transition: opacity 0.5s ease;
+        pointer-events: auto;
+      }
+      #splash.fade { opacity: 0; pointer-events: none; }
+      #splash h1 {
+        margin: 0;
+        font-size: clamp(44px, 12vw, 72px);
+        letter-spacing: 0.12em;
+        color: var(--bronze);
+        text-shadow: 0 2px 16px rgba(0, 0, 0, 0.9);
+      }
+      #splash p { margin: 0; letter-spacing: 0.3em; text-transform: uppercase; font-size: 13px; color: var(--bronze-dim); }
+
+      /* ---- painéis (histórico e confirmação) ---- */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        background: rgba(8, 6, 4, 0.8);
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+      .overlay.center { align-items: center; padding: 24px; z-index: 6; }
+      .panel {
+        width: 100%;
+        max-width: 480px;
+        display: flex;
+        flex-direction: column;
+        background: var(--panel);
+        border: 1px solid var(--bronze-dim);
+        box-shadow: 0 0 0 4px rgba(176, 141, 87, 0.07);
+      }
+      .overlay:not(.center) .panel { border-top: 0; border-bottom: 0; }
+      .overlay.center .panel { border-radius: 14px; padding: 24px; gap: 20px; max-width: 360px; }
+      .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--bronze-dim); }
+      .panel-head h2 { margin: 0; font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bronze); }
+      .panel-head .btn { padding: 8px 16px; min-height: 44px; font-size: 15px; }
+      #history-list { list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+      #history-list li { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid rgba(122, 98, 64, 0.25); }
+      #history-list .when { color: var(--bronze-dim); font-size: 14px; }
+      #history-list .val { font-size: 28px; color: var(--bronze); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+      #history-list .val.crit { color: var(--bronze-hi); text-shadow: 0 0 10px rgba(217, 184, 120, 0.5); }
+      #history-list .val.fumble { color: var(--danger); }
+      #history-empty { padding: 40px 24px; text-align: center; color: var(--bronze-dim); }
+      .panel-foot { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--bronze-dim); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      #history-note { color: var(--bronze-dim); font-size: 13px; }
+      .confirm-text { margin: 0; line-height: 1.5; }
+      .row { display: flex; gap: 12px; justify-content: flex-end; }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="splashing">
+      <header>
+        <div id="result-label">Resultado</div>
+        <div id="result" role="status" aria-live="polite" aria-label="Resultado da última rolagem">–</div>
+        <button id="settings-btn" class="icon-btn left" type="button" aria-label="Abrir configurações">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="8" cy="17" r="2" />
+          </svg>
+        </button>
+        <button id="history-btn" class="icon-btn" type="button" aria-label="Abrir histórico de rolagens">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" />
+          </svg>
+        </button>
+      </header>
+      <main id="stage"><div id="status" role="status"></div></main>
+      <footer>
+        <button id="roll" class="btn" type="button">Rolar</button>
+      </footer>
+    </div>
+
+    <div id="splash" role="presentation">
+      <h1>CritBox</h1>
+      <p>Bioma Labs</p>
+    </div>
+
+    <div id="history" class="overlay" hidden>
+      <section class="panel" role="dialog" aria-modal="true" aria-labelledby="history-title">
+        <div class="panel-head">
+          <h2 id="history-title">Histórico</h2>
+          <button id="history-close" class="btn plain" type="button">Fechar</button>
+        </div>
+        <ul id="history-list"></ul>
+        <div id="history-empty" hidden>Nenhuma rolagem ainda.</div>
+        <div class="panel-foot">
+          <span id="history-note"></span>
+          <button id="history-clear" class="btn danger" type="button">Limpar</button>
+        </div>
+      </section>
+    </div>
+
+
+    <div id="settings" class="overlay" hidden>
+      <section class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="panel-head">
+          <h2 id="settings-title">Configurações</h2>
+          <button id="settings-close" class="btn plain" type="button">Fechar</button>
+        </div>
+        <div class="setting">
+          <span class="name" id="lbl-sound">Sons</span>
+          <button id="toggle-sound" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="lbl-sound"></button>
+        </div>
+        <div class="setting">
+          <span>
+            <span class="name" id="lbl-haptics">Vibração</span>
+            <span class="hint" id="haptics-note" hidden>Indisponível neste dispositivo ou navegador.</span>
+          </span>
+          <button id="toggle-haptics" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="lbl-haptics"></button>
+        </div>
+      </section>
+    </div>
+
+    <div id="confirm" class="overlay center" hidden>
+      <section class="panel" role="alertdialog" aria-modal="true" aria-labelledby="confirm-text">
+        <p id="confirm-text" class="confirm-text">Apagar todo o histórico de rolagens? Suas skins não serão afetadas.</p>
+        <div class="row">
+          <button id="confirm-no" class="btn plain" type="button">Cancelar</button>
+          <button id="confirm-yes" class="btn danger" type="button">Apagar</button>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
