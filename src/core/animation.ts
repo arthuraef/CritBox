@@ -105,14 +105,66 @@ export function planRoll(input: RollPlanInput): RollPlan {
   const spinTurns = 3 + random() * 2; // 3 a 5 voltas, decaindo a zero
   const spinAngle = spinTurns * 2 * Math.PI * (random() < 0.5 ? -1 : 1);
 
-  // Movimento de translação pela tela com velocidade e ricochete nas margens
-  const travelAngle = random() * 2 * Math.PI;
-  // Distância e velocidade do lançamento pelo tabuleiro
-  const travelSpeed = bounds ? (bounds.maxX - bounds.minX) * (2.0 + random() * 1.5) : (1.0 + random() * 0.8);
-  const velX = Math.cos(travelAngle) * travelSpeed;
-  const velZ = Math.sin(travelAngle) * travelSpeed;
+  // Construção de trajetória realista por waypoints (quiques):
+  // O dado começa no centro [0, 0] (ou initX, initZ), é arremessado com força contra
+  // uma das margens, ricocheteia nos primeiros quiques e, nos arcos finais com menos energia,
+  // desacelera naturalmente convergindo em direção ao centro [0, 0].
+  interface Waypoint {
+    timeMs: number;
+    x: number;
+    z: number;
+  }
+
+  // Gera pontos-chave realistas:
+  // t=0: largada em initX, initZ
+  // t=impact 1: primeira colisão forte perto de uma das bordas
+  // t=impact 2: ricochete em direção ao meio/outra borda
+  // t=impact 3: desaceleração se aproximando do centro
+  // t=settle/fim: rola suavemente até repousar no centro [0, 0]
   const initX = input.startPosition ? input.startPosition[0] : 0;
   const initZ = input.startPosition ? input.startPosition[1] : 0;
+
+  const waypoints: Waypoint[] = [];
+  waypoints.push({ timeMs: 0, x: initX, z: initZ });
+
+  if (bounds) {
+    // Escolhe uma direção de arremesso vigorosa
+    const throwAngle = random() * 2 * Math.PI;
+    // Ponto de impacto 1: atinge próximo às margens da tela (85% a 95% do limite)
+    const marginFactor1 = 0.82 + random() * 0.15;
+    const boundRadiusX = Math.abs(bounds.maxX);
+    const boundRadiusZ = Math.abs(bounds.maxZ);
+    const targetX1 = Math.cos(throwAngle) * boundRadiusX * marginFactor1;
+    const targetZ1 = Math.sin(throwAngle) * boundRadiusZ * marginFactor1;
+    const t1 = impactsMs[0] ?? (durationMs * 0.3);
+    waypoints.push({ timeMs: t1, x: targetX1, z: targetZ1 });
+
+    // Ponto de impacto 2: rebate na parede com ângulo de reflexão + desvio aleatório
+    // e viaja cruzando a mesa
+    const reboundAngle = throwAngle + Math.PI + (random() - 0.5) * 1.0;
+    const marginFactor2 = 0.45 + random() * 0.25;
+    const targetX2 = Math.cos(reboundAngle) * boundRadiusX * marginFactor2;
+    const targetZ2 = Math.sin(reboundAngle) * boundRadiusZ * marginFactor2;
+    const t2 = impactsMs[1] ?? (durationMs * 0.55);
+    waypoints.push({ timeMs: t2, x: targetX2, z: targetZ2 });
+
+    // Ponto de impacto 3: perdeu energia, quica curto já perto do centro
+    const angle3 = reboundAngle + (random() - 0.5) * 1.2;
+    const dist3 = 0.2 + random() * 0.25;
+    const targetX3 = Math.cos(angle3) * dist3;
+    const targetZ3 = Math.sin(angle3) * dist3;
+    const t3 = impactsMs[2] ?? settleStartMs;
+    waypoints.push({ timeMs: t3, x: targetX3, z: targetZ3 });
+
+    // Fim da rolagem: desliza até o centro exato [0, 0]
+    waypoints.push({ timeMs: durationMs, x: 0, z: 0 });
+  } else {
+    // Sem bounds: deriva sutil até o centro
+    const driftAngle = random() * 2 * Math.PI;
+    const dist = 0.5 + random() * 0.5;
+    waypoints.push({ timeMs: durationMs * 0.4, x: Math.cos(driftAngle) * dist, z: Math.sin(driftAngle) * dist });
+    waypoints.push({ timeMs: durationMs, x: 0, z: 0 });
+  }
 
   function heightAt(tMs: number): number {
     for (const arc of arcs) {
@@ -124,30 +176,48 @@ export function planRoll(input: RollPlanInput): RollPlan {
     return 0; // repouso
   }
 
+  // Interpolação suave (Catmull-Rom / Hermite) entre os waypoints para movimento contínuo e orgânico
   function positionAt(tMs: number): [number, number] {
-    const u = Math.min(Math.max(tMs, 0), durationMs) / durationMs;
-    // O dado viaja e ricocheteia pelas margens no início e meio da rolagem,
-    // e nos últimos arcos de quique converge precisamente para o centro [0, 0].
-    const progress = easeOutCubic(u);
-    // envelope de atração ao centro: 1 no início/meio, decaindo a 0 no final
-    const centerWeight = Math.pow(1 - u, 1.4);
+    const t = Math.min(Math.max(tMs, 0), durationMs);
+    if (t >= durationMs) return [0, 0];
 
-    const rawX = initX * (1 - progress) + velX * progress;
-    const rawZ = initZ * (1 - progress) + velZ * progress;
-
-    if (!bounds) {
-      const px = rawX * centerWeight;
-      const pz = rawZ * centerWeight;
-      return [Object.is(px, -0) || Math.abs(px) < 1e-12 ? 0 : px, Object.is(pz, -0) || Math.abs(pz) < 1e-12 ? 0 : pz];
+    // Encontra o segmento de waypoints ativo
+    let idx = 0;
+    while (idx < waypoints.length - 1 && waypoints[idx + 1].timeMs < t) {
+      idx++;
     }
+    const p0 = waypoints[Math.max(idx - 1, 0)];
+    const p1 = waypoints[idx];
+    const p2 = waypoints[Math.min(idx + 1, waypoints.length - 1)];
+    const p3 = waypoints[Math.min(idx + 2, waypoints.length - 1)];
 
-    const bx = bounceCoordinate(rawX, bounds.minX, bounds.maxX);
-    const bz = bounceCoordinate(rawZ, bounds.minZ, bounds.maxZ);
+    const segDuration = p2.timeMs - p1.timeMs;
+    if (segDuration <= 1e-4) return [p2.x, p2.z];
 
-    // Na fase final de acomodação (quiques baixos), o dado vai ao centro da tela
-    const px = bx * centerWeight;
-    const pz = bz * centerWeight;
-    return [Object.is(px, -0) || Math.abs(px) < 1e-12 ? 0 : px, Object.is(pz, -0) || Math.abs(pz) < 1e-12 ? 0 : pz];
+    const u = (t - p1.timeMs) / segDuration;
+    // Interpolação cúbica suave (Hermite / Smoothstep composto)
+    const s = u * u * (3 - 2 * u);
+
+    // Tangentes aproximadas para continuidade da velocidade (sem quinas artificiais)
+    const tx1 = (p2.x - p0.x) * 0.5;
+    const tz1 = (p2.z - p0.z) * 0.5;
+    const tx2 = (p3.x - p1.x) * 0.5;
+    const tz2 = (p3.z - p1.z) * 0.5;
+
+    // Hermite Spline
+    const u2 = u * u;
+    const u3 = u2 * u;
+    const h00 = 2 * u3 - 3 * u2 + 1;
+    const h10 = u3 - 2 * u2 + u;
+    const h01 = -2 * u3 + 3 * u2;
+    const h11 = u3 - u2;
+
+    const x = h00 * p1.x + h10 * tx1 + h01 * p2.x + h11 * tx2;
+    const z = h00 * p1.z + h10 * tz1 + h01 * p2.z + h11 * tz2;
+
+    const cleanX = Object.is(x, -0) || Math.abs(x) < 1e-9 ? 0 : x;
+    const cleanZ = Object.is(z, -0) || Math.abs(z) < 1e-9 ? 0 : z;
+    return [cleanX, cleanZ];
   }
 
   const finalPos: [number, number] = [0, 0];
