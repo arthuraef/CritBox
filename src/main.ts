@@ -11,10 +11,16 @@ import { SoundPlayer } from './audio/sound.ts';
 import { hapticsSupported, vibrate } from './audio/haptics.ts';
 import { setupSettingsView } from './ui/settingsView.ts';
 
+declare const __APP_VERSION__: string;
+
 const stage = document.getElementById('stage') as HTMLElement;
 const resultEl = document.getElementById('result') as HTMLElement;
 const rollButton = document.getElementById('roll') as HTMLButtonElement;
 const statusEl = document.getElementById('status') as HTMLElement;
+const versionEl = document.getElementById('app-version');
+if (versionEl && typeof __APP_VERSION__ !== 'undefined') {
+  versionEl.textContent = `v${__APP_VERSION__}`;
+}
 
 const source = createCryptoSource();
 const visualRandom = createVisualRandom(source);

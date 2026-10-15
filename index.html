@@ -110,6 +110,18 @@
       #status { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: var(--bronze-dim); font-size: 14px; padding: 0 24px; }
 
       footer { display: flex; justify-content: center; padding: 12px 16px 24px; position: relative; z-index: 2; }
+      #app-version {
+        position: absolute;
+        bottom: calc(env(safe-area-inset-bottom) + 14px);
+        left: calc(env(safe-area-inset-left) + 18px);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        color: var(--bronze-dim);
+        opacity: 0.7;
+        pointer-events: none;
+        z-index: 3;
+        font-variant-numeric: tabular-nums;
+      }
       .btn {
         font-size: 18px;
         letter-spacing: 0.1em;
@@ -238,6 +250,7 @@
       <footer>
         <button id="roll" class="btn" type="button">Rolar</button>
       </footer>
+      <div id="app-version" aria-hidden="true"></div>
     </div>
 
     <div id="splash" role="presentation">
