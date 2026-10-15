@@ -574,8 +574,18 @@
         <div class="changelog-content">
           <article class="changelog-entry">
             <div class="changelog-entry-head">
-              <span class="version-tag">Versão 0.3.0</span>
+              <span class="version-tag">Versão 0.4.0</span>
               <span class="version-current">Atual</span>
+            </div>
+            <ul class="changelog-list">
+              <li>Preparação para aplicativos móveis (Android e iOS) com resposta tátil nativa no aparelho.</li>
+              <li>Base geométrica universal para dados de RPG (D6 e D20).</li>
+              <li>Painel de transparência e privacidade (LGPD) garantindo que nenhum dado pessoal é coletado.</li>
+            </ul>
+          </article>
+          <article class="changelog-entry past">
+            <div class="changelog-entry-head">
+              <span class="version-tag">Versão 0.3.0</span>
             </div>
             <ul class="changelog-list">
               <li>Catálogo de skins do D20: Marfim Clássico, Metal Escurecido e Chama do Dragão.</li>
@@ -642,6 +652,34 @@
             <span class="hint" id="haptics-note" hidden>Indisponível neste dispositivo ou navegador.</span>
           </span>
           <button id="toggle-haptics" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="lbl-haptics"></button>
+        </div>
+        <div class="setting" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(176,141,87,0.2);">
+          <span>
+            <span class="name" id="lbl-privacy">Privacidade & LGPD</span>
+            <span class="hint">Armazenamento 100% no seu dispositivo.</span>
+          </span>
+          <button id="privacy-btn" class="btn plain" type="button" style="padding: 6px 14px; font-size: 13px;">Ler</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Modal de Privacidade & LGPD -->
+    <div id="privacy-modal" class="overlay" hidden>
+      <section class="panel" role="dialog" aria-modal="true" aria-labelledby="privacy-title">
+        <div class="panel-head">
+          <h2 id="privacy-title">Privacidade e Dados</h2>
+          <button id="privacy-close" class="btn plain" type="button">Fechar</button>
+        </div>
+        <div class="changelog-content">
+          <p style="margin-top: 0; line-height: 1.5; color: var(--text);">
+            O <strong>CritBox</strong> foi desenvolvido pela <strong>Bioma Labs</strong> com respeito total à sua privacidade e em conformidade estrita com a LGPD (Lei Geral de Proteção de Dados) e GDPR.
+          </p>
+          <ul class="changelog-list">
+            <li><strong>Armazenamento 100% Local:</strong> Seu histórico de rolagens, opções de áudio e skins desbloqueadas são mantidos exclusivamente no seu aparelho.</li>
+            <li><strong>Sem Coleta de Dados:</strong> O aplicativo não cria cadastros, não solicita permissão de contatos, localização ou câmera, e não monitora sua atividade.</li>
+            <li><strong>Funciona Offline:</strong> Você pode rolar dados mesmo sem conexão com a internet. A rede só é utilizada se você optar por assistir a um anúncio para liberar skins.</li>
+            <li><strong>Controle Total:</strong> Você pode apagar seu histórico completo a qualquer momento no menu de Histórico.</li>
+          </ul>
         </div>
       </section>
     </div>

@@ -15,6 +15,7 @@ import { setupDiceSelector } from './ui/diceSelector.ts';
 import { SkinsStore } from './core/skins.ts';
 import { WebMockRewardedAdProvider } from './core/ads.ts';
 import { setupSkinsView } from './ui/skinsView.ts';
+import { setupPrivacyView } from './ui/privacyView.ts';
 
 declare const __APP_VERSION__: string;
 
@@ -61,7 +62,7 @@ scene.setSkin(skins.activeSkin);
 /** Toca som e vibração conforme as configurações. Nunca lança nem altera a rolagem. */
 function emit(kind: FeedbackKind, strength = 1): void {
   if (settings.value.sound) sound.play(kind, strength);
-  if (settings.value.haptics) vibrate(hapticFor(kind, strength));
+  if (settings.value.haptics) vibrate(hapticFor(kind, strength), kind, strength);
 }
 
 // Os navegadores só liberam áudio depois de um gesto do usuário.
@@ -70,6 +71,7 @@ for (const type of ['pointerdown', 'keydown'] as const) {
 }
 
 setupSettingsView(settings, { hapticsSupported: hapticsSupported(), onSoundEnabled: () => sound.unlock() });
+setupPrivacyView();
 setupHistoryView(history, () => {
   // Ao limpar o histórico, nada no palco precisa ser resetado
 });

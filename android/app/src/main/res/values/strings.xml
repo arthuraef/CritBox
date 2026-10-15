@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CritBox</string>
+    <string name="title_activity_main">CritBox</string>
+    <string name="package_name">com.biomalabs.critbox</string>
+    <string name="custom_url_scheme">com.biomalabs.critbox</string>
+</resources>
